@@ -239,27 +239,36 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                 />
 
                                 {/* Riga Ora e Durata */}
-                                <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', marginTop: 10 }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontWeight: 700, marginBottom: 5, display: 'block' }}>Ora Inizio</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginTop: '15px' }}>
+
+                                    {/* Colonna 1: Ora Inizio */}
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <label style={{ fontWeight: 700, marginBottom: 8, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                            Ora Inizio
+                                        </label>
                                         <input
                                             type="time"
                                             className="input-field"
-                                            style={{ width: '100%' }}
+                                            style={{ width: '80%', margin: 0 }}
                                             value={activityForm.startTime}
                                             onChange={e => setActivityForm({ ...activityForm, startTime: e.target.value })}
                                         />
                                     </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontWeight: 700, marginBottom: 5, display: 'block' }}>Durata (min)</label>
+
+                                    {/* Colonna 2: Durata */}
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <label style={{ fontWeight: 700, marginBottom: 8, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                            Durata (min)
+                                        </label>
                                         <input
                                             type="number"
                                             className="input-field"
-                                            style={{ width: '100%' }}
+                                            style={{ width: '100%', margin: 0 }}
                                             value={activityForm.duration}
                                             onChange={e => setActivityForm({ ...activityForm, duration: parseInt(e.target.value) || 0 })}
                                         />
                                     </div>
+
                                 </div>
 
                                 <label style={{ fontWeight: 700, marginBottom: 5, marginTop: 10 }}>Note</label>
