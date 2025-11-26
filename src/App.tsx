@@ -1,82 +1,74 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './SupabaseClient'
+import Dashboard from './components/Dashboard'
+import TripDetails from './components/TripDetails' // IMPORT NUOVO
+import './index.css'
 
 function App(): JSX.Element {
+  const [user, setUser] = useState<any>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [user, setUser] = useState<any>(null)
   const [msg, setMsg] = useState('')
+  const [isLoginMode, setIsLoginMode] = useState(true)
 
-  // Controlla se c'è già una sessione attiva all'avvio
+  // Stato per navigazione
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-    })
-
-    // Ascolta i cambiamenti di stato (login/logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-
+    supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null))
     return () => subscription.unsubscribe()
   }, [])
 
-  const handleLogin = async () => {
+  const handleAuth = async () => {
     setMsg('Caricamento...')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setMsg('Errore: ' + error.message)
-    else setMsg('')
-  }
-
-  const handleSignup = async () => {
-    setMsg('Registrazione...')
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) setMsg('Errore: ' + error.message)
-    else setMsg('Controlla la tua email per confermare!')
+    if (isLoginMode) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) setMsg(error.message)
+      else setMsg('')
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password })
+      if (error) setMsg(error.message)
+      else setMsg('Controlla la tua email!')
+    }
   }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+    setUser(null)
+    setSelectedTripId(null)
   }
 
+  // --- NAVIGAZIONE ---
+  if (user) {
+    if (selectedTripId) {
+      // Mostra il planner se c'è un ID selezionato
+      return <TripDetails tripId={selectedTripId} onBack={() => setSelectedTripId(null)} />
+    }
+
+    // Altrimenti mostra Dashboard
+    return <Dashboard user={user} onLogout={handleLogout} onSelectTrip={(id) => setSelectedTripId(id)} />
+  }
+
+  // --- LOGIN ---
   return (
-    <div style={{ padding: '40px', maxWidth: '400px', margin: '0 auto', textAlign: 'center' }}>
-      <h1>Travel Planner ✈️</h1>
-      
-      {user ? (
-        <div style={{ background: '#334155', padding: '20px', borderRadius: '8px' }}>
-          <h3>Benvenuto!</h3>
-          <p>Sei loggato come: {user.email}</p>
-          <button 
-            onClick={handleLogout}
-            style={{ padding: '10px 20px', cursor: 'pointer', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px' }}
-          >
-            Logout
-          </button>
+    <div className="auth-wrapper">
+      <div className="auth-card">
+        <div className="auth-image-side">
+          <div className="auth-image-overlay"></div>
+          <div className="auth-quote">"Il viaggio è l'unica cosa che compri che ti rende più ricco."<span>Travel Planner App</span></div>
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <input 
-            type="email" 
-            placeholder="Email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)}
-            style={{ padding: '10px' }}
-          />
-          <input 
-            type="password" 
-            placeholder="Password" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)}
-            style={{ padding: '10px' }}
-          />
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-            <button onClick={handleLogin} style={{ padding: '10px 20px', cursor: 'pointer' }}>Login</button>
-            <button onClick={handleSignup} style={{ padding: '10px 20px', cursor: 'pointer' }}>Registrati</button>
+        <div className="auth-form-side">
+          <h1 className="app-title">{isLoginMode ? 'Accedi' : 'Crea Account'}</h1>
+          <div className="input-group">
+            <input className="input-field" type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+            <input className="input-field" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAuth()} />
           </div>
-          <p style={{ color: 'yellow' }}>{msg}</p>
+          <button className="btn-primary" onClick={handleAuth}>{isLoginMode ? 'Entra' : 'Registrati'}</button>
+          <p style={{color: '#ef4444', marginTop: 10, minHeight: '20px'}}>{msg}</p>
+          <button className="btn-link" onClick={() => setIsLoginMode(!isLoginMode)}>{isLoginMode ? 'Registrati' : 'Accedi'}</button>
         </div>
-      )}
+      </div>
     </div>
   )
 }
