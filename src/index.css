@@ -270,18 +270,6 @@ h4,
   background-position: center;
 }
 
-.trip-card::before {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80px;
-  height: 20px;
-  background-color: rgba(255, 255, 255, 0.4);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
 .trip-card-overlay {
   background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
   position: absolute;
@@ -316,12 +304,9 @@ h4,
   margin-top: 10px;
 }
 
-.trip-delete-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
+.trip-action-btn {
   background-color: white;
-  border: 1px solid #ef4444;
+  border: 1px solid var(--border-color);
   border-radius: 50%;
   width: 32px;
   height: 32px;
@@ -329,9 +314,8 @@ h4,
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  color: #ef4444;
+  color: var(--text-muted);
   transition: all 0.2s;
-  z-index: 20;
   opacity: 0;
   transform: scale(0.8);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
@@ -343,13 +327,19 @@ h4,
   border-color: var(--primary-light);
 }
 
-.trip-card:hover .trip-delete-btn {
+.trip-card:hover .trip-action-btn {
   opacity: 1;
   transform: scale(1);
 }
 
-.trip-delete-btn:hover {
+.trip-action-btn:hover {
+  background-color: var(--primary);
+  color: white;
+}
+
+.trip-action-btn.delete:hover {
   background-color: #ef4444;
+  border-color: #ef4444;
   color: white;
 }
 

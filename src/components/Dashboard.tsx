@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
-import { Trash2 } from 'lucide-react'
+import { Trash2, PlusCircle, Edit2 } from 'lucide-react'
 
 interface Trip {
     id: string
@@ -22,6 +22,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
     const [trips, setTrips] = useState<Trip[]>([])
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
+    const [editingTripId, setEditingTripId] = useState<string | null>(null)
 
     const [formData, setFormData] = useState({
         title: '',
@@ -83,26 +84,58 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
     }
 
     const handleCreateTrip = async () => {
-        if (!formData.title || !formData.startDate || !formData.endDate || !formData.destination) return alert('Compila i campi obbligatori!')
+        if (!formData.title || !formData.startDate || !formData.endDate || !formData.destination) {
+            return alert('Compila i campi obbligatori!')
+        }
 
+        // ... (Tieni qui i controlli delle date come prima: diffDays < 0, diffDays > 30) ...
         const start = new Date(formData.startDate)
         const end = new Date(formData.endDate)
-
         const diffTime = end.getTime() - start.getTime()
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        if (diffDays < 0) return alert('Date non valide!')
+        if (diffDays > 30) return alert('Max 30 giorni!')
 
-        if (diffDays < 0) {
-            return alert('La data di fine non può essere precedente alla data di inizio!')
+        // Costruiamo la stringa info alloggio
+        const accomInfo = formData.accommodation
+            ? `Alloggio: ${formData.accommodation}${formData.airport ? ` | Arrivo: ${formData.airport}` : ''}`
+            : null
+
+        // --- CASO 1: MODIFICA ESISTENTE ---
+        if (editingTripId) {
+            // Troviamo il viaggio originale per confrontare la destinazione
+            const originalTrip = trips.find(t => t.id === editingTripId)
+            let newImageUrl = originalTrip?.image_url // Di base teniamo quella vecchia
+
+            // Se la destinazione è cambiata, cerchiamo una nuova immagine
+            if (originalTrip && originalTrip.destination.toLowerCase() !== formData.destination.toLowerCase()) {
+                const img = await fetchUnsplashImage(formData.destination)
+                if (img) newImageUrl = img
+            }
+
+            const { error } = await supabase
+                .from('trips')
+                .update({
+                    title: formData.title,
+                    destination: formData.destination,
+                    start_date: formData.startDate,
+                    end_date: formData.endDate,
+                    accommodation_info: accomInfo,
+                    image_url: newImageUrl // Aggiorniamo l'immagine (vecchia o nuova)
+                })
+                .eq('id', editingTripId)
+
+            if (error) alert(error.message)
+            else {
+                setShowModal(false)
+                fetchTrips()
+            }
+            return
         }
 
-        if (diffDays > 30) {
-            return alert(`Il viaggio è troppo lungo (${diffDays} giorni). Il limite massimo è 30 giorni.`)
-        }
-
+        // --- CASO 2: CREAZIONE NUOVA (Il codice che avevi prima) ---
         let coverImage = await fetchUnsplashImage(formData.destination)
-        if (!coverImage) {
-            coverImage = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop'
-        }
+        if (!coverImage) coverImage = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop'
 
         const { data: tripData, error: tripError } = await supabase
             .from('trips')
@@ -113,9 +146,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                 start_date: formData.startDate,
                 end_date: formData.endDate,
                 image_url: coverImage,
-                accommodation_info: formData.accommodation
-                    ? `Alloggio: ${formData.accommodation}${formData.airport ? ` | Arrivo: ${formData.airport}` : ''}`
-                    : null
+                accommodation_info: accomInfo
             }])
             .select()
             .single()
@@ -125,7 +156,6 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         if (tripData) {
             const daysArray = []
             let dayCount = 1
-
             for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                 daysArray.push({
                     trip_id: tripData.id,
@@ -133,13 +163,34 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                     day_number: dayCount++
                 })
             }
-
             await supabase.from('days').insert(daysArray)
-
             setShowModal(false)
-            setFormData({ title: '', destination: '', startDate: '', endDate: '', accommodation: '', airport: '' })
             fetchTrips()
         }
+    }
+
+    // Edit trip
+    const handleEditClick = (e: React.MouseEvent, trip: Trip) => {
+        e.stopPropagation()
+        setEditingTripId(trip.id)
+
+        setFormData({
+            title: trip.title,
+            destination: trip.destination,
+            startDate: trip.start_date,
+            endDate: trip.end_date,
+            accommodation: trip.accommodation_info ? trip.accommodation_info.split(' | ')[0].replace('Alloggio: ', '') : '',
+            airport: trip.accommodation_info && trip.accommodation_info.includes('| Arrivo:') ? trip.accommodation_info.split('| Arrivo: ')[1] : ''
+        })
+
+        setShowModal(true)
+    }
+
+    // Clean form
+    const openNewTripModal = () => {
+        setEditingTripId(null)
+        setFormData({ title: '', destination: '', startDate: '', endDate: '', accommodation: '', airport: '' })
+        setShowModal(true)
     }
 
     return (
@@ -156,7 +207,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                 <h2 style={{ marginBottom: '30px', color: 'var(--text-main)' }}>I tuoi Itinerari</h2>
 
                 <div className="trips-grid">
-                    <div className="trip-card new-trip" onClick={() => setShowModal(true)}>
+                    <div className="trip-card new-trip" onClick={openNewTripModal}>
                         <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>+</div>
                         <div>Nuova Avventura</div>
                     </div>
@@ -169,12 +220,26 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                             style={{ backgroundImage: `url(${trip.image_url || 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop'})` }}
                         >
 
-                            <button
-                                className="trip-delete-btn"
-                                onClick={(e) => handleDeleteTrip(e, trip.id)}
-                            >
-                                <Trash2 size={16} />
-                            </button>
+                            <div style={{ position: 'absolute', top: 15, right: 15, display: 'flex', gap: '8px', zIndex: 20 }}>
+
+                                {/* BOTTONE EDIT */}
+                                <button
+                                    className="trip-action-btn" // Useremo una classe CSS generica (vedi punto 5)
+                                    onClick={(e) => handleEditClick(e, trip)}
+                                    title="Modifica viaggio"
+                                >
+                                    <Edit2 size={16} />
+                                </button>
+
+                                {/* BOTTONE DELETE */}
+                                <button
+                                    className="trip-action-btn delete" // Classe specifica per il rosso
+                                    onClick={(e) => handleDeleteTrip(e, trip.id)}
+                                    title="Elimina viaggio"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
 
                             <div className="trip-card-overlay">
                                 <h3 className="trip-title">{trip.title}</h3>
@@ -193,7 +258,9 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
             {showModal && (
                 <div className="modal-overlay">
                     <div className="modal-content">
-                        <h2 style={{ marginTop: 0, color: 'var(--text-main)' }}>Pianifica Viaggio</h2>
+                        <h2 style={{ marginTop: 0, color: 'var(--text-main)' }}>
+                            {editingTripId ? 'Modifica Viaggio' : 'Pianifica Viaggio'}
+                        </h2>
                         <div className="input-group">
                             <div className='input-subgroup'>
                                 <label style={{ fontWeight: 'bold' }}>Nome Viaggio *</label>
@@ -206,7 +273,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                                     <input
                                         type="date"
                                         className="input-field"
-                                        style={{cursor: 'pointer'}}
+                                        style={{ cursor: 'pointer' }}
                                         value={formData.startDate}
                                         onChange={e => setFormData({ ...formData, startDate: e.target.value })}
                                         onClick={(e) => (e.currentTarget as any).showPicker()}
@@ -217,7 +284,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                                     <input
                                         type="date"
                                         className="input-field"
-                                        style={{cursor: 'pointer'}}
+                                        style={{ cursor: 'pointer' }}
                                         value={formData.endDate}
                                         onChange={e => setFormData({ ...formData, endDate: e.target.value })}
                                         onClick={(e) => (e.currentTarget as any).showPicker()}
@@ -237,7 +304,9 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                         </div>
                         <div className="modal-footer">
                             <button className="back-btn" onClick={() => setShowModal(false)}>Annulla</button>
-                            <button className="btn-primary" style={{ width: 'auto' }} onClick={handleCreateTrip}>Crea</button>
+                            <button className="btn-primary" style={{ width: 'auto' }} onClick={handleCreateTrip}>
+                                {editingTripId ? 'Salva Modifiche' : 'Crea'}
+                            </button>
                         </div>
                     </div>
                 </div>
