@@ -124,13 +124,19 @@ h4,
 .input-group {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 30px;
   margin-bottom: 25px;
+}
+
+.input-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px
 }
 
 .input-field {
   background-color: var(--bg-sidebar);
-  border: 2px solid transparent;
+  border: 0;
   padding: 14px;
   border-radius: 12px;
   color: var(--text-main);

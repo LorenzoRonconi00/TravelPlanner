@@ -63,7 +63,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
     }
 
     const handleCreateTrip = async () => {
-        if (!formData.title || !formData.startDate || !formData.endDate) return alert('Compila i campi obbligatori!')
+        if (!formData.title || !formData.startDate || !formData.endDate || !formData.destination) return alert('Compila i campi obbligatori!')
 
         const start = new Date(formData.startDate)
         const end = new Date(formData.endDate)
@@ -165,25 +165,31 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                     <div className="modal-content">
                         <h2 style={{ marginTop: 0, color: 'var(--text-main)' }}>Pianifica Viaggio</h2>
                         <div className="input-group">
-                            <label style={{ fontWeight: 'bold' }}>Nome Viaggio</label>
-                            <input className="input-field" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="Es. Estate in Toscana" />
+                            <div className='input-subgroup'>
+                                <label style={{ fontWeight: 'bold' }}>Nome Viaggio *</label>
+                                <input className="input-field" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="Es. Vacanza dei miei sogni" />
+                            </div>
 
-                            <div style={{ display: 'flex', gap: '15px' }}>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ fontWeight: 'bold' }}>Dal</label>
+                            <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '60px' }}>
+                                <div className='input-subgroup'>
+                                    <label style={{ fontWeight: 'bold', marginRight: '15px' }}>Dal *</label>
                                     <input type="date" className="input-field" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ fontWeight: 'bold' }}>Al</label>
+                                <div className='input-subgroup'>
+                                    <label style={{ fontWeight: 'bold', marginRight: '15px' }}>Al *</label>
                                     <input type="date" className="input-field" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} />
                                 </div>
                             </div>
 
-                            <label style={{ fontWeight: 'bold' }}>Destinazione</label>
-                            <input className="input-field" value={formData.destination} onChange={e => setFormData({ ...formData, destination: e.target.value })} placeholder="Città o Paese" />
+                            <div className='input-subgroup'>
+                                <label style={{ fontWeight: 'bold' }}>Destinazione *</label>
+                                <input className="input-field" value={formData.destination} onChange={e => setFormData({ ...formData, destination: e.target.value })} placeholder="Città o Paese" />
+                            </div>
 
-                            <label style={{ fontWeight: 'bold' }}>Info Alloggio (Opzionale)</label>
-                            <input className="input-field" value={formData.accommodation} onChange={e => setFormData({ ...formData, accommodation: e.target.value })} placeholder="Nome Hotel..." />
+                            <div className='input-subgroup'>
+                                <label style={{ fontWeight: 'bold' }}>Info Alloggio (Opzionale)</label>
+                                <input className="input-field" value={formData.accommodation} onChange={e => setFormData({ ...formData, accommodation: e.target.value })} placeholder="Nome Alloggio..." />
+                            </div>
                         </div>
                         <div className="modal-footer">
                             <button className="back-btn" onClick={() => setShowModal(false)}>Annulla</button>
