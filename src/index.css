@@ -161,7 +161,6 @@ h4,
   cursor: pointer;
   font-weight: 700;
   font-family: 'Nunito', sans-serif;
-  width: 100%;
   transition: transform 0.1s, background-color 0.2s;
   box-shadow: 0 4px 10px rgba(194, 65, 12, 0.3);
 }

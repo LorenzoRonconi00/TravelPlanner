@@ -203,11 +203,25 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                             <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '60px' }}>
                                 <div className='input-subgroup'>
                                     <label style={{ fontWeight: 'bold', marginRight: '15px' }}>Dal *</label>
-                                    <input type="date" className="input-field" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
+                                    <input
+                                        type="date"
+                                        className="input-field"
+                                        style={{cursor: 'pointer'}}
+                                        value={formData.startDate}
+                                        onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                                        onClick={(e) => (e.currentTarget as any).showPicker()}
+                                    />
                                 </div>
                                 <div className='input-subgroup'>
                                     <label style={{ fontWeight: 'bold', marginRight: '15px' }}>Al *</label>
-                                    <input type="date" className="input-field" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} />
+                                    <input
+                                        type="date"
+                                        className="input-field"
+                                        style={{cursor: 'pointer'}}
+                                        value={formData.endDate}
+                                        onChange={e => setFormData({ ...formData, endDate: e.target.value })}
+                                        onClick={(e) => (e.currentTarget as any).showPicker()}
+                                    />
                                 </div>
                             </div>
 

@@ -144,7 +144,12 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         setEditingActivityId(act.id); setActivityForm({ type: act.type, title: act.title, startTime: act.start_time ? act.start_time.slice(0, 5) : '', duration: act.duration_minutes || 60, notes: act.notes || '' }); setShowActivityModal(true)
     }
     const handleSave = async () => {
-        if (!selectedDay || !activityForm.title) return;
+        if (!selectedDay) return
+
+        if (!activityForm.title || !activityForm.startTime) {
+            return alert('Devi inserire un Titolo e un Orario di inizio!')
+        }
+
         const payload = { type: activityForm.type, title: activityForm.title, start_time: activityForm.startTime || null, duration_minutes: activityForm.duration, notes: activityForm.notes, day_id: selectedDay.id }
         if (editingActivityId) await supabase.from('activities').update(payload).eq('id', editingActivityId); else await supabase.from('activities').insert([payload]);
         setShowActivityModal(false); fetchActivities(selectedDay.id)
@@ -214,11 +219,11 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                 {/* 4. Overlay Visivo */}
                 <DragOverlay>{activeDragItem && <div className="drag-overlay-item">{activeDragItem.icon}<span>{activeDragItem.label}</span></div>}</DragOverlay>
 
-                {/* 5. Modale */}
+                {/* 5. Modal */}
                 {showActivityModal && (
                     <div className="modal-overlay">
                         <div className="modal-content">
-                            {/* Header Modale */}
+                            {/* Header Modal */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                                 <h2 style={{ margin: 0, color: 'var(--text-main)' }}>
                                     {editingActivityId ? 'Modifica' : 'Nuova'} Attività
@@ -230,13 +235,15 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
                             {/* Campi Input */}
                             <div className="input-group">
-                                <label style={{ fontWeight: 700, marginBottom: 5 }}>Titolo</label>
-                                <input
-                                    className="input-field"
-                                    value={activityForm.title}
-                                    onChange={e => setActivityForm({ ...activityForm, title: e.target.value })}
-                                    autoFocus
-                                />
+                                <div className='input-subgroup'>
+                                    <label style={{ fontWeight: 700, marginBottom: 5 }}>Titolo *</label>
+                                    <input
+                                        className="input-field"
+                                        value={activityForm.title}
+                                        onChange={e => setActivityForm({ ...activityForm, title: e.target.value })}
+                                        autoFocus
+                                    />
+                                </div>
 
                                 {/* Riga Ora e Durata */}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginTop: '15px' }}>
@@ -244,14 +251,21 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                     {/* Colonna 1: Ora Inizio */}
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                         <label style={{ fontWeight: 700, marginBottom: 8, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                            Ora Inizio
+                                            Ora Inizio *
                                         </label>
                                         <input
                                             type="time"
                                             className="input-field"
-                                            style={{ width: '80%', margin: 0 }}
+                                            style={{ width: '80%', margin: 0, cursor: 'pointer' }}
                                             value={activityForm.startTime}
                                             onChange={e => setActivityForm({ ...activityForm, startTime: e.target.value })}
+                                            onClick={(e) => {
+                                                try {
+                                                    (e.currentTarget as any).showPicker()
+                                                } catch (error) {
+                                                    console.error(error)
+                                                }
+                                            }}
                                         />
                                     </div>
 
@@ -271,13 +285,15 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
                                 </div>
 
-                                <label style={{ fontWeight: 700, marginBottom: 5, marginTop: 10 }}>Note</label>
-                                <textarea
-                                    className="input-field"
-                                    rows={3}
-                                    value={activityForm.notes}
-                                    onChange={e => setActivityForm({ ...activityForm, notes: e.target.value })}
-                                />
+                                <div className='input-subgroup'>
+                                    <label style={{ fontWeight: 700, marginBottom: 5, marginTop: 10 }}>Note</label>
+                                    <textarea
+                                        className="input-field"
+                                        rows={3}
+                                        value={activityForm.notes}
+                                        onChange={e => setActivityForm({ ...activityForm, notes: e.target.value })}
+                                    />
+                                </div>
                             </div>
 
                             {/* Footer con Annulla e Salva */}
