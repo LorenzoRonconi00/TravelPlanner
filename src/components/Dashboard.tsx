@@ -9,6 +9,7 @@ interface Trip {
     start_date: string
     end_date: string
     accommodation_info?: string
+    image_url?: string
 }
 
 interface DashboardProps {
@@ -62,6 +63,25 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         }
     }
 
+    const fetchUnsplashImage = async (query: string): Promise<string | null> => {
+        const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY
+        if (!accessKey) return null
+
+        try {
+            const response = await fetch(
+                `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=landscape&per_page=1`,
+                { headers: { Authorization: `Client-ID ${accessKey}` } }
+            )
+            const data = await response.json()
+            if (data.results && data.results.length > 0) {
+                return data.results[0].urls.regular
+            }
+        } catch (error) {
+            console.error("Errore Unsplash:", error)
+        }
+        return null
+    }
+
     const handleCreateTrip = async () => {
         if (!formData.title || !formData.startDate || !formData.endDate || !formData.destination) return alert('Compila i campi obbligatori!')
 
@@ -79,6 +99,11 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
             return alert(`Il viaggio è troppo lungo (${diffDays} giorni). Il limite massimo è 30 giorni.`)
         }
 
+        let coverImage = await fetchUnsplashImage(formData.destination)
+        if (!coverImage) {
+            coverImage = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop'
+        }
+
         const { data: tripData, error: tripError } = await supabase
             .from('trips')
             .insert([{
@@ -87,6 +112,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                 destination: formData.destination,
                 start_date: formData.startDate,
                 end_date: formData.endDate,
+                image_url: coverImage,
                 accommodation_info: formData.accommodation
                     ? `Alloggio: ${formData.accommodation}${formData.airport ? ` | Arrivo: ${formData.airport}` : ''}`
                     : null
@@ -136,24 +162,28 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                     </div>
 
                     {loading ? <p>Caricamento...</p> : trips.map((trip) => (
-                        <div key={trip.id} className="trip-card" onClick={() => onSelectTrip(trip.id)}>
+                        <div
+                            key={trip.id}
+                            className="trip-card"
+                            onClick={() => onSelectTrip(trip.id)}
+                            style={{ backgroundImage: `url(${trip.image_url || 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop'})` }}
+                        >
 
                             <button
                                 className="trip-delete-btn"
                                 onClick={(e) => handleDeleteTrip(e, trip.id)}
-                                title="Elimina viaggio"
                             >
                                 <Trash2 size={16} />
                             </button>
 
-                            <div>
+                            <div className="trip-card-overlay">
                                 <h3 className="trip-title">{trip.title}</h3>
-                                <span className="trip-dates">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span className="trip-tag">📍 {trip.destination}</span>
+                                </div>
+                                <span className="trip-dates" style={{ marginTop: '10px' }}>
                                     {new Date(trip.start_date).toLocaleDateString()} ➝ {new Date(trip.end_date).toLocaleDateString()}
                                 </span>
-                            </div>
-                            <div>
-                                {trip.destination && <span className="trip-tag">📍 {trip.destination}</span>}
                             </div>
                         </div>
                     ))}
