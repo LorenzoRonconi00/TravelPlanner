@@ -90,6 +90,22 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         setActivities(data || [])
     }
 
+    // Helper function to get base64 image from URL
+    const getBase64ImageFromURL = async (url: string): Promise<string | null> => {
+        try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+            });
+        } catch (e) {
+            console.error("Errore caricamento immagine PDF", e);
+            return null;
+        }
+    };
+
     // Export PDF function
     const handleExportPdf = async () => {
         setExporting(true)
@@ -98,25 +114,73 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
             const { data: allActivities } = await supabase.from('activities').select('*').in('day_id', dayIds).order('start_time', { ascending: true })
             if (!allActivities) throw new Error('Nessun dato da esportare')
 
+            const imageUrl = tripInfo.image_url || 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop';
+            const base64Img = await getBase64ImageFromURL(imageUrl);
+
             const doc = new jsPDF()
+            const pageWidth = 210;
+            const headerHeight = 80;
 
-            doc.setFillColor(255, 247, 237); doc.rect(0, 0, 210, 297, 'F');
+            if (base64Img) {
+                try {
+                    doc.addImage(base64Img, 'JPEG', 0, 0, pageWidth, headerHeight, undefined, 'FAST');
+                } catch (e) {
+                    doc.setFillColor(194, 65, 12); 
+                    doc.rect(0, 0, pageWidth, headerHeight, 'F');
+                }
+            } else {
+                doc.setFillColor(194, 65, 12);
+                doc.rect(0, 0, pageWidth, headerHeight, 'F');
+            }
 
-            doc.setFont('times', 'bold'); doc.setTextColor(194, 65, 12); doc.setFontSize(24);
-            doc.text(tripInfo.title, 14, 20)
+            doc.setGState(new (doc.GState as any)({ opacity: 0.4 })); 
+            doc.setFillColor(0, 0, 0);
+            doc.rect(0, 0, pageWidth, headerHeight, 'F');
+            doc.setGState(new (doc.GState as any)({ opacity: 1 }));
 
-            doc.setFont('helvetica', 'normal'); doc.setTextColor(80); doc.setFontSize(12);
-            doc.text(`${tripInfo.destination} • ${new Date(tripInfo.start_date).toLocaleDateString()} - ${new Date(tripInfo.end_date).toLocaleDateString()}`, 14, 28)
-            if (tripInfo.accommodation_info) doc.text(tripInfo.accommodation_info, 14, 34)
+            const cardWidth = 160;
+            const cardHeight = 40;
+            const cardX = (pageWidth - cardWidth) / 2;
+            const cardY = (headerHeight - cardHeight) / 2;
 
-            let yPos = 45
+            doc.setFillColor(255, 255, 255);
+            doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 3, 3, 'F');
+
+            doc.setTextColor(67, 20, 7);
+
+            doc.setFont('times', 'bold'); 
+            doc.setFontSize(20);
+            doc.text(tripInfo.title, pageWidth / 2, cardY + 15, { align: 'center', maxWidth: cardWidth - 10 });
+
+            doc.setFont('helvetica', 'normal'); 
+            doc.setFontSize(10); 
+            doc.setTextColor(100);
+            const dateStr = `${new Date(tripInfo.start_date).toLocaleDateString()} - ${new Date(tripInfo.end_date).toLocaleDateString()}`;
+            doc.text(`${tripInfo.destination.toUpperCase()} • ${dateStr}`, pageWidth / 2, cardY + 25, { align: 'center' });
+
+            if(tripInfo.accommodation_info) {
+                doc.setFontSize(9);
+                doc.setTextColor(120);
+                const cleanAccom = tripInfo.accommodation_info.replace('Alloggio: ', '');
+                doc.text(cleanAccom, pageWidth / 2, cardY + 33, { align: 'center', maxWidth: cardWidth - 10 });
+            }
+
+            let yPos = headerHeight + 15;
 
             days.forEach((day) => {
                 const dayActs = allActivities.filter((a: any) => a.day_id === day.id)
 
-                doc.setFont('times', 'bold'); doc.setTextColor(67, 20, 7); doc.setFontSize(14);
-                doc.text(`Giorno ${day.day_number} - ${new Date(day.date).toLocaleDateString()}`, 14, yPos)
-                yPos += 5
+                doc.setFont('times', 'bold'); 
+                doc.setTextColor(194, 65, 12);
+                doc.setFontSize(14);
+                doc.text(`Giorno ${day.day_number}`, 14, yPos);
+                
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(100);
+                doc.setFontSize(10);
+                doc.text(new Date(day.date).toLocaleDateString(), 40, yPos);
+                
+                yPos += 5;
 
                 if (dayActs.length > 0) {
                     autoTable(doc, {
@@ -126,21 +190,49 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                             `${act.title} (${act.duration_minutes} min)\n${act.notes || ''}`
                         ]),
                         theme: 'grid',
-                        styles: { fillColor: [255, 255, 255], textColor: [60, 60, 60], fontSize: 10 },
-                        columnStyles: { 0: { fontStyle: 'bold', textColor: [194, 65, 12], cellWidth: 20 } },
+                        styles: { 
+                            fillColor: [255, 255, 255], 
+                            textColor: [60, 60, 60], 
+                            fontSize: 10,
+                            lineColor: [231, 229, 228],
+                            lineWidth: 0.1
+                        },
+                        columnStyles: { 
+                            0: { fontStyle: 'bold', textColor: [194, 65, 12], cellWidth: 20, valign: 'top' } 
+                        },
                         margin: { left: 14, right: 14 }
                     })
                     // @ts-ignore
                     yPos = doc.lastAutoTable.finalY + 15
                 } else {
-                    doc.setFontSize(10); doc.setTextColor(150); doc.text('Nessuna attività', 14, yPos + 5); yPos += 15
+                    doc.setFontSize(10); 
+                    doc.setTextColor(150); 
+                    doc.text('Nessuna attività pianificata.', 14, yPos + 8); 
+                    yPos += 20
                 }
 
-                if (yPos > 270) { doc.addPage(); doc.setFillColor(255, 247, 237); doc.rect(0, 0, 210, 297, 'F'); yPos = 20; }
+                if (yPos > 270) { 
+                    doc.addPage(); 
+                    yPos = 20; 
+                }
             })
 
+            const pageCount = doc.internal.pages.length - 1;
+            for(let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(150);
+                doc.text(`Pagina ${i} di ${pageCount} - Creato con Travel Planner`, pageWidth / 2, 290, { align: 'center' });
+            }
+
             doc.save(`${tripInfo.title.replace(/\s+/g, '_')}.pdf`)
-        } catch (e: any) { alert('Errore PDF: ' + e.message) } finally { setExporting(false) }
+
+        } catch (e: any) { 
+            console.error(e)
+            alert('Errore generazione PDF: ' + e.message) 
+        } finally { 
+            setExporting(false) 
+        }
     }
 
     // Delete activity
@@ -190,7 +282,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                         {/* BACK BUTTON */}
                         <button
                             className="back-to-trips"
-                            onClick={onBack}                            
+                            onClick={onBack}
                         >
                             <ArrowLeft size={16} /> Torna ai viaggi
                         </button>
