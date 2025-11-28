@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './SupabaseClient'
 import Dashboard from './components/Dashboard'
-import TripDetails from './components/TripDetails' // IMPORT NUOVO
+import TripDetails from './components/TripDetails'
 import './index.css'
 
 function App(): JSX.Element {
@@ -11,7 +11,6 @@ function App(): JSX.Element {
   const [msg, setMsg] = useState('')
   const [isLoginMode, setIsLoginMode] = useState(true)
 
-  // Stato per navigazione
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -39,18 +38,16 @@ function App(): JSX.Element {
     setSelectedTripId(null)
   }
 
-  // --- NAVIGAZIONE ---
+  // Navigation
   if (user) {
     if (selectedTripId) {
-      // Mostra il planner se c'è un ID selezionato
       return <TripDetails tripId={selectedTripId} onBack={() => setSelectedTripId(null)} />
     }
 
-    // Altrimenti mostra Dashboard
     return <Dashboard user={user} onLogout={handleLogout} onSelectTrip={(id) => setSelectedTripId(id)} />
   }
 
-  // --- LOGIN ---
+  // Login
   return (
     <div className="auth-wrapper">
       <div className="auth-card">

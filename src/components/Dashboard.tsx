@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
-import { Trash2, PlusCircle, Edit2 } from 'lucide-react'
+import { Trash2, Edit2 } from 'lucide-react'
 
 interface Trip {
     id: string
@@ -37,6 +37,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         fetchTrips()
     }, [])
 
+    // Fetch trips from Supabase
     const fetchTrips = async () => {
         setLoading(true)
         const { data, error } = await supabase
@@ -48,6 +49,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         setLoading(false)
     }
 
+    // Delete trip
     const handleDeleteTrip = async (e: React.MouseEvent, tripId: string) => {
         e.stopPropagation()
 
@@ -64,6 +66,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         }
     }
 
+    // Fetch image from Unsplash
     const fetchUnsplashImage = async (query: string): Promise<string | null> => {
         const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY
         if (!accessKey) return null
@@ -83,12 +86,12 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         return null
     }
 
+    // Create trip
     const handleCreateTrip = async () => {
         if (!formData.title || !formData.startDate || !formData.endDate || !formData.destination) {
             return alert('Compila i campi obbligatori!')
         }
 
-        // ... (Tieni qui i controlli delle date come prima: diffDays < 0, diffDays > 30) ...
         const start = new Date(formData.startDate)
         const end = new Date(formData.endDate)
         const diffTime = end.getTime() - start.getTime()
@@ -96,18 +99,14 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         if (diffDays < 0) return alert('Date non valide!')
         if (diffDays > 30) return alert('Max 30 giorni!')
 
-        // Costruiamo la stringa info alloggio
         const accomInfo = formData.accommodation
             ? `Alloggio: ${formData.accommodation}${formData.airport ? ` | Arrivo: ${formData.airport}` : ''}`
             : null
 
-        // --- CASO 1: MODIFICA ESISTENTE ---
         if (editingTripId) {
-            // Troviamo il viaggio originale per confrontare la destinazione
             const originalTrip = trips.find(t => t.id === editingTripId)
-            let newImageUrl = originalTrip?.image_url // Di base teniamo quella vecchia
+            let newImageUrl = originalTrip?.image_url
 
-            // Se la destinazione è cambiata, cerchiamo una nuova immagine
             if (originalTrip && originalTrip.destination.toLowerCase() !== formData.destination.toLowerCase()) {
                 const img = await fetchUnsplashImage(formData.destination)
                 if (img) newImageUrl = img
@@ -121,7 +120,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                     start_date: formData.startDate,
                     end_date: formData.endDate,
                     accommodation_info: accomInfo,
-                    image_url: newImageUrl // Aggiorniamo l'immagine (vecchia o nuova)
+                    image_url: newImageUrl
                 })
                 .eq('id', editingTripId)
 
@@ -133,7 +132,6 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
             return
         }
 
-        // --- CASO 2: CREAZIONE NUOVA (Il codice che avevi prima) ---
         let coverImage = await fetchUnsplashImage(formData.destination)
         if (!coverImage) coverImage = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop'
 
@@ -222,18 +220,18 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
 
                             <div style={{ position: 'absolute', top: 15, right: 15, display: 'flex', gap: '8px', zIndex: 20 }}>
 
-                                {/* BOTTONE EDIT */}
+                                {/* EDIT BUTTON */}
                                 <button
-                                    className="trip-action-btn" // Useremo una classe CSS generica (vedi punto 5)
+                                    className="trip-action-btn"
                                     onClick={(e) => handleEditClick(e, trip)}
                                     title="Modifica viaggio"
                                 >
                                     <Edit2 size={16} />
                                 </button>
 
-                                {/* BOTTONE DELETE */}
+                                {/* DELETE BUTTON */}
                                 <button
-                                    className="trip-action-btn delete" // Classe specifica per il rosso
+                                    className="trip-action-btn delete"
                                     onClick={(e) => handleDeleteTrip(e, trip.id)}
                                     title="Elimina viaggio"
                                 >

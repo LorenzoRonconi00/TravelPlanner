@@ -3,14 +3,30 @@ import { supabase } from '../SupabaseClient'
 import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X } from 'lucide-react'
 import { DndContext, useDraggable, useDroppable, DragOverlay, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 
-// LIBRERIE PDF (Quelle sicure)
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-// --- TIPI ---
-interface TripDetailsProps { tripId: string; onBack: () => void }
-interface Day { id: string; date: string; day_number: number }
-interface Activity { id: string; title: string; type: string; start_time: string | null; duration_minutes: number | null; notes: string | null; day_id?: string }
+// Types
+interface TripDetailsProps {
+    tripId: string;
+    onBack: () => void
+}
+
+interface Day {
+    id: string;
+    date: string;
+    day_number: number
+}
+
+interface Activity {
+    id: string;
+    title: string;
+    type: string;
+    start_time: string | null;
+    duration_minutes: number | null;
+    notes: string | null;
+    day_id?: string
+}
 
 const ACTIVITY_TYPES = [
     { type: 'culture', label: 'Cultura', icon: <Landmark size={20} /> },
@@ -20,7 +36,7 @@ const ACTIVITY_TYPES = [
     { type: 'leisure', label: 'Svago', icon: <Ticket size={20} /> },
 ]
 
-// --- SOTTO-COMPONENTI DND (Drag and Drop) ---
+// Drag & Drop Components
 function DraggableToolItem({ type, label, icon }: { type: string, label: string, icon: any }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `tool-${type}`, data: { type, label } })
     return (
@@ -41,7 +57,7 @@ function DroppableTimeline({ children }: { children: React.ReactNode }) {
     return <div ref={setNodeRef} style={style}>{children}</div>
 }
 
-// --- COMPONENTE PRINCIPALE ---
+
 export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.Element {
     const [days, setDays] = useState<Day[]>([])
     const [selectedDay, setSelectedDay] = useState<Day | null>(null)
@@ -51,7 +67,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const [exporting, setExporting] = useState(false)
     const [activeDragItem, setActiveDragItem] = useState<any>(null)
 
-    // Stati Modale Modifica/Creazione
     const [showActivityModal, setShowActivityModal] = useState(false)
     const [editingActivityId, setEditingActivityId] = useState<string | null>(null)
     const [activityForm, setActivityForm] = useState({ type: '', title: '', startTime: '', duration: 60, notes: '' })
@@ -59,7 +74,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     useEffect(() => { fetchTripAndDays() }, [tripId])
     useEffect(() => { if (selectedDay) fetchActivities(selectedDay.id) }, [selectedDay])
 
-    // --- CARICAMENTO DATI ---
+    // Fetch trip info and days
     const fetchTripAndDays = async () => {
         setLoading(true)
         const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
@@ -69,27 +84,24 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         setLoading(false)
     }
 
+    // Fetch activities for a specific day
     const fetchActivities = async (dayId: string) => {
         const { data } = await supabase.from('activities').select('*').eq('day_id', dayId).order('start_time', { ascending: true })
         setActivities(data || [])
     }
 
-    // --- FUNZIONE EXPORT PDF (NATIVA) ---
+    // Export PDF function
     const handleExportPdf = async () => {
         setExporting(true)
         try {
-            // 1. Scarica TUTTE le attività di tutti i giorni
             const dayIds = days.map(d => d.id)
             const { data: allActivities } = await supabase.from('activities').select('*').in('day_id', dayIds).order('start_time', { ascending: true })
             if (!allActivities) throw new Error('Nessun dato da esportare')
 
-            // 2. Crea il PDF
             const doc = new jsPDF()
 
-            // Sfondo Pagina (Crema)
             doc.setFillColor(255, 247, 237); doc.rect(0, 0, 210, 297, 'F');
 
-            // Intestazione
             doc.setFont('times', 'bold'); doc.setTextColor(194, 65, 12); doc.setFontSize(24);
             doc.text(tripInfo.title, 14, 20)
 
@@ -99,17 +111,14 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
             let yPos = 45
 
-            // Loop per ogni giorno
             days.forEach((day) => {
                 const dayActs = allActivities.filter((a: any) => a.day_id === day.id)
 
-                // Titolo Giorno
                 doc.setFont('times', 'bold'); doc.setTextColor(67, 20, 7); doc.setFontSize(14);
                 doc.text(`Giorno ${day.day_number} - ${new Date(day.date).toLocaleDateString()}`, 14, yPos)
                 yPos += 5
 
                 if (dayActs.length > 0) {
-                    // Tabella Attività
                     autoTable(doc, {
                         startY: yPos,
                         body: dayActs.map((act: any) => [
@@ -127,7 +136,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                     doc.setFontSize(10); doc.setTextColor(150); doc.text('Nessuna attività', 14, yPos + 5); yPos += 15
                 }
 
-                // Nuova pagina se serve
                 if (yPos > 270) { doc.addPage(); doc.setFillColor(255, 247, 237); doc.rect(0, 0, 210, 297, 'F'); yPos = 20; }
             })
 
@@ -135,14 +143,18 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         } catch (e: any) { alert('Errore PDF: ' + e.message) } finally { setExporting(false) }
     }
 
-    // --- GESTIONE ATTIVITÀ (CRUD) ---
+    // Delete activity
     const handleDelete = async (e: any, id: string) => {
         e.stopPropagation(); if (!confirm('Eliminare?')) return;
         await supabase.from('activities').delete().eq('id', id); if (selectedDay) fetchActivities(selectedDay.id)
     }
+
+    // Open edit modal
     const openEdit = (act: Activity) => {
         setEditingActivityId(act.id); setActivityForm({ type: act.type, title: act.title, startTime: act.start_time ? act.start_time.slice(0, 5) : '', duration: act.duration_minutes || 60, notes: act.notes || '' }); setShowActivityModal(true)
     }
+
+    // Save activity (new or edited)
     const handleSave = async () => {
         if (!selectedDay) return
 
@@ -155,15 +167,14 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         setShowActivityModal(false); fetchActivities(selectedDay.id)
     }
 
-    // --- HANDLERS DRAG & DROP ---
+    // Handle Drag & Drop
     const handleDragStart = (e: DragStartEvent) => { const tool = ACTIVITY_TYPES.find(t => t.type === e.active.data.current?.type); if (tool) setActiveDragItem(tool) }
     const handleDragEnd = (e: DragEndEvent) => {
         setActiveDragItem(null);
-        // Se rilasciato nella zona giusta
         if (e.over && e.over.id === 'timeline-drop-zone' && selectedDay && e.active.data.current?.type) {
             setEditingActivityId(null);
             setActivityForm({ type: e.active.data.current.type, title: e.active.data.current.label, startTime: '', duration: 60, notes: '' });
-            setShowActivityModal(true) // Apre modale creazione
+            setShowActivityModal(true)
         }
     }
 
@@ -172,20 +183,54 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     return (
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="planner-container">
-                {/* 1. Sidebar Giorni */}
+                {/* SIDEBAR */}
                 <div className="sidebar-days">
-                    <div style={{ padding: 20, borderBottom: '1px solid var(--border-color)' }}>
-                        <button className="back-btn" onClick={onBack}><ArrowLeft size={18} /> Indietro</button>
+                    <div style={{ padding: '25px 20px', borderBottom: '1px solid var(--border-color)', backgroundColor: '#fff' }}>
+
+                        {/* BACK BUTTON */}
+                        <button
+                            className="back-btn"
+                            onClick={onBack}
+                            style={{ border: 'none', padding: 0, color: 'var(--text-muted)', marginBottom: '15px', fontSize: '0.9rem' }}
+                        >
+                            <ArrowLeft size={16} /> Torna ai viaggi
+                        </button>
+
+                        {/* DESTINATION */}
+                        <h2 style={{
+                            margin: 0,
+                            color: 'var(--primary)',
+                            fontSize: '1.8rem',
+                            lineHeight: '1.2'
+                        }}>
+                            {tripInfo?.destination || 'Tua Destinazione'}
+                        </h2>
+
+                        {/* DAYS */}
+                        <span style={{
+                            display: 'block',
+                            marginTop: '5px',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.85rem',
+                            fontWeight: 600
+                        }}>
+                            {new Date(tripInfo?.start_date).toLocaleDateString()} - {new Date(tripInfo?.end_date).toLocaleDateString()}
+                        </span>
                     </div>
-                    {days.map(day => (
-                        <div key={day.id} className={`day-item ${selectedDay?.id === day.id ? 'active' : ''}`} onClick={() => setSelectedDay(day)}>
-                            <Calendar size={20} />
-                            <div><div className="day-number">Giorno {day.day_number}</div><div className="day-date">{new Date(day.date).toLocaleDateString()}</div></div>
-                        </div>
-                    ))}
+                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                        {days.map(day => (
+                            <div key={day.id} className={`day-item ${selectedDay?.id === day.id ? 'active' : ''}`} onClick={() => setSelectedDay(day)}>
+                                <Calendar size={20} />
+                                <div>
+                                    <div className="day-number">Giorno {day.day_number}</div>
+                                    <div className="day-date">{new Date(day.date).toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
-                {/* 2. Timeline Centrale */}
+                {/* TIMELINE */}
                 <div className="timeline-area">
                     {selectedDay && (
                         <>
@@ -210,20 +255,18 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                     )}
                 </div>
 
-                {/* 3. Sidebar Attività */}
+                {/* ACTIVITIES SIDEBAR */}
                 <div className="sidebar-tools">
                     <h3 style={{ margin: '0 0 20px 0' }}>Attività</h3>
                     {ACTIVITY_TYPES.map(t => <DraggableToolItem key={t.type} type={t.type} label={t.label} icon={t.icon} />)}
                 </div>
 
-                {/* 4. Overlay Visivo */}
                 <DragOverlay>{activeDragItem && <div className="drag-overlay-item">{activeDragItem.icon}<span>{activeDragItem.label}</span></div>}</DragOverlay>
 
-                {/* 5. Modal */}
+                {/* MODAL */}
                 {showActivityModal && (
                     <div className="modal-overlay">
                         <div className="modal-content">
-                            {/* Header Modal */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                                 <h2 style={{ margin: 0, color: 'var(--text-main)' }}>
                                     {editingActivityId ? 'Modifica' : 'Nuova'} Attività
@@ -233,7 +276,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                 </button>
                             </div>
 
-                            {/* Campi Input */}
                             <div className="input-group">
                                 <div className='input-subgroup'>
                                     <label style={{ fontWeight: 700, marginBottom: 5 }}>Titolo *</label>
@@ -245,10 +287,8 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                     />
                                 </div>
 
-                                {/* Riga Ora e Durata */}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginTop: '15px' }}>
 
-                                    {/* Colonna 1: Ora Inizio */}
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                         <label style={{ fontWeight: 700, marginBottom: 8, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                                             Ora Inizio *
@@ -269,7 +309,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                         />
                                     </div>
 
-                                    {/* Colonna 2: Durata */}
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                         <label style={{ fontWeight: 700, marginBottom: 8, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                                             Durata (min)
@@ -296,7 +335,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                 </div>
                             </div>
 
-                            {/* Footer con Annulla e Salva */}
                             <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 25 }}>
                                 <button
                                     className="back-btn"
