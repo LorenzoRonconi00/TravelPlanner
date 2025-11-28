@@ -196,8 +196,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
             <header className="dashboard-header">
                 <div className="brand-title">📔 Travel Planner</div>
                 <div className="user-profile">
-                    <span className="user-email">{user.email}</span>
-                    <button className="logout-btn" onClick={onLogout}>Esci</button>
+                    <button className="logout-btn" onClick={onLogout}>Logout</button>
                 </div>
             </header>
 
@@ -222,7 +221,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
 
                                 {/* EDIT BUTTON */}
                                 <button
-                                    className="trip-action-btn"
+                                    className="trip-action-btn edit"
                                     onClick={(e) => handleEditClick(e, trip)}
                                     title="Modifica viaggio"
                                 >
