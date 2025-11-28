@@ -189,9 +189,8 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
                         {/* BACK BUTTON */}
                         <button
-                            className="back-btn"
-                            onClick={onBack}
-                            style={{ border: 'none', padding: 0, color: 'var(--text-muted)', marginBottom: '15px', fontSize: '0.9rem' }}
+                            className="back-to-trips"
+                            onClick={onBack}                            
                         >
                             <ArrowLeft size={16} /> Torna ai viaggi
                         </button>
@@ -199,6 +198,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                         {/* DESTINATION */}
                         <h2 style={{
                             margin: 0,
+                            marginTop: '10px',
                             color: 'var(--primary)',
                             fontSize: '1.8rem',
                             lineHeight: '1.2'
