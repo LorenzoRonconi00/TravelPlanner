@@ -663,3 +663,76 @@ h4,
 .back-to-trips:hover {
   color: var(--primary);
 }
+
+/* AI ASSISTANT */
+.assistant-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 320px;
+  background-color: #FFF;
+  border-right: 1px solid var(--border-color);
+  box-shadow: 5px 0 25px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  animation: slideRight 0.3s ease-out;
+}
+
+@keyframes slideRight {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.assistant-header {
+  padding: 20px;
+  background-color: var(--primary-light);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ai-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background-color: white;
+  transition: all 0.2s;
+}
+
+.ai-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(194, 65, 12, 0.1);
+}
+
+.ai-fab {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 15px rgba(194, 65, 12, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 40;
+}
+
+.ai-fab:hover {
+  transform: translateX(-50%) scale(1.1);
+  background-color: var(--primary-hover);
+}

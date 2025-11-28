@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
-import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X } from 'lucide-react'
+import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Plus } from 'lucide-react'
 import { DndContext, useDraggable, useDroppable, DragOverlay, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 
 import jsPDF from 'jspdf'
@@ -34,6 +34,15 @@ const ACTIVITY_TYPES = [
     { type: 'transport', label: 'Volo', icon: <Plane size={20} /> },
     { type: 'hotel', label: 'Hotel/Appartamento', icon: <Hotel size={20} /> },
     { type: 'leisure', label: 'Svago', icon: <Ticket size={20} /> },
+]
+
+const TRIP_MOODS = [
+    "insolite e poco conosciute (gemme nascoste)",
+    "rilassanti e panoramiche",
+    "tipiche, tradizionali e gastronomiche",
+    "culturali, storiche e artistiche",
+    "divertenti e sociali",
+    "romantiche e suggestive"
 ]
 
 // Drag & Drop Components
@@ -71,6 +80,11 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const [editingActivityId, setEditingActivityId] = useState<string | null>(null)
     const [activityForm, setActivityForm] = useState({ type: '', title: '', startTime: '', duration: 60, notes: '' })
 
+    const [showAssistant, setShowAssistant] = useState(false)
+    const [aiLoading, setAiLoading] = useState(false)
+    const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
+    const [hotelInput, setHotelInput] = useState('')
+
     useEffect(() => { fetchTripAndDays() }, [tripId])
     useEffect(() => { if (selectedDay) fetchActivities(selectedDay.id) }, [selectedDay])
 
@@ -89,6 +103,105 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         const { data } = await supabase.from('activities').select('*').eq('day_id', dayId).order('start_time', { ascending: true })
         setActivities(data || [])
     }
+
+    // Function to call Gemini API
+    const askGemini = async (destination: string, accommodation: string, exclusions: string[], mood: string) => {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) throw new Error("Manca la API Key di Gemini");
+
+        const exclusionText = exclusions.length > 0
+            ? `IMPORTANTE: NON suggerire assolutamente le seguenti attività perché l'utente le ha già: ${exclusions.join(', ')}.`
+            : '';
+
+        const prompt = `
+      Sei una guida locale esperta di ${destination}.
+      L'utente alloggia presso: "${accommodation}".
+      
+      Suggerisci 5 attività che siano **${mood}**.
+      ${exclusionText}
+      
+      Rispondi SOLO con un array JSON valido.
+      Per il campo "cost": DEVI inserire una stima (es. "Gratis", "€15").
+      
+      Formato richiesto:
+      [
+        {
+          "title": "Nome Attività",
+          "description": "Descrizione max 20 parole",
+          "duration": 60,
+          "cost": "Gratis o Prezzo", 
+          "type": "culture" 
+        }
+      ]
+      (type: 'culture', 'food', 'leisure', 'transport')
+    `;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error?.message || 'Errore Gemini');
+        }
+
+        const data = await response.json();
+        let textResponse = data.candidates[0].content.parts[0].text;
+
+        console.log("RISPOSTA GEMINI (" + mood + "):", textResponse);
+
+        textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        return JSON.parse(textResponse);
+    }
+
+    // Handle AI Assistant Request
+    const handleAskAssistant = async () => {
+        setAiLoading(true);
+        const accommodation = tripInfo.accommodation_info
+            ? tripInfo.accommodation_info.replace('Alloggio: ', '').split('|')[0]
+            : hotelInput;
+
+        if (!accommodation) {
+            alert("Inserisci il nome dell'hotel o la zona per avere suggerimenti precisi!");
+            setAiLoading(false);
+            return;
+        }
+
+        try {
+            const existingTitles = activities.map(a => a.title);
+            const suggestedTitles = aiSuggestions.map(s => s.title);
+
+            const exclusions = [...existingTitles, ...suggestedTitles];
+
+            const randomMood = TRIP_MOODS[Math.floor(Math.random() * TRIP_MOODS.length)];
+
+            const newSuggestions = await askGemini(tripInfo.destination, accommodation, exclusions, randomMood);
+
+            setAiSuggestions(newSuggestions);
+
+        } catch (e: any) {
+            console.error(e);
+            alert("Errore AI: " + e.message);
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    // Function to add suggestion to activities
+    const handleAddSuggestion = (suggestion: any) => {
+        setEditingActivityId(null);
+        setActivityForm({
+            type: suggestion.type || 'leisure',
+            title: suggestion.title,
+            startTime: '',
+            duration: suggestion.duration,
+            notes: `${suggestion.description}\n\nCosto: ${suggestion.cost}`
+        });
+        setShowActivityModal(true);
+    };
 
     // Helper function to get base64 image from URL
     const getBase64ImageFromURL = async (url: string): Promise<string | null> => {
@@ -125,7 +238,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                 try {
                     doc.addImage(base64Img, 'JPEG', 0, 0, pageWidth, headerHeight, undefined, 'FAST');
                 } catch (e) {
-                    doc.setFillColor(194, 65, 12); 
+                    doc.setFillColor(194, 65, 12);
                     doc.rect(0, 0, pageWidth, headerHeight, 'F');
                 }
             } else {
@@ -133,7 +246,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                 doc.rect(0, 0, pageWidth, headerHeight, 'F');
             }
 
-            doc.setGState(new (doc.GState as any)({ opacity: 0.4 })); 
+            doc.setGState(new (doc.GState as any)({ opacity: 0.4 }));
             doc.setFillColor(0, 0, 0);
             doc.rect(0, 0, pageWidth, headerHeight, 'F');
             doc.setGState(new (doc.GState as any)({ opacity: 1 }));
@@ -148,17 +261,17 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
             doc.setTextColor(67, 20, 7);
 
-            doc.setFont('times', 'bold'); 
+            doc.setFont('times', 'bold');
             doc.setFontSize(20);
             doc.text(tripInfo.title, pageWidth / 2, cardY + 15, { align: 'center', maxWidth: cardWidth - 10 });
 
-            doc.setFont('helvetica', 'normal'); 
-            doc.setFontSize(10); 
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
             doc.setTextColor(100);
             const dateStr = `${new Date(tripInfo.start_date).toLocaleDateString()} - ${new Date(tripInfo.end_date).toLocaleDateString()}`;
             doc.text(`${tripInfo.destination.toUpperCase()} • ${dateStr}`, pageWidth / 2, cardY + 25, { align: 'center' });
 
-            if(tripInfo.accommodation_info) {
+            if (tripInfo.accommodation_info) {
                 doc.setFontSize(9);
                 doc.setTextColor(120);
                 const cleanAccom = tripInfo.accommodation_info.replace('Alloggio: ', '');
@@ -170,16 +283,16 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
             days.forEach((day) => {
                 const dayActs = allActivities.filter((a: any) => a.day_id === day.id)
 
-                doc.setFont('times', 'bold'); 
+                doc.setFont('times', 'bold');
                 doc.setTextColor(194, 65, 12);
                 doc.setFontSize(14);
                 doc.text(`Giorno ${day.day_number}`, 14, yPos);
-                
+
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(100);
                 doc.setFontSize(10);
                 doc.text(new Date(day.date).toLocaleDateString(), 40, yPos);
-                
+
                 yPos += 5;
 
                 if (dayActs.length > 0) {
@@ -190,35 +303,35 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                             `${act.title} (${act.duration_minutes} min)\n${act.notes || ''}`
                         ]),
                         theme: 'grid',
-                        styles: { 
-                            fillColor: [255, 255, 255], 
-                            textColor: [60, 60, 60], 
+                        styles: {
+                            fillColor: [255, 255, 255],
+                            textColor: [60, 60, 60],
                             fontSize: 10,
                             lineColor: [231, 229, 228],
                             lineWidth: 0.1
                         },
-                        columnStyles: { 
-                            0: { fontStyle: 'bold', textColor: [194, 65, 12], cellWidth: 20, valign: 'top' } 
+                        columnStyles: {
+                            0: { fontStyle: 'bold', textColor: [194, 65, 12], cellWidth: 20, valign: 'top' }
                         },
                         margin: { left: 14, right: 14 }
                     })
                     // @ts-ignore
                     yPos = doc.lastAutoTable.finalY + 15
                 } else {
-                    doc.setFontSize(10); 
-                    doc.setTextColor(150); 
-                    doc.text('Nessuna attività pianificata.', 14, yPos + 8); 
+                    doc.setFontSize(10);
+                    doc.setTextColor(150);
+                    doc.text('Nessuna attività pianificata.', 14, yPos + 8);
                     yPos += 20
                 }
 
-                if (yPos > 270) { 
-                    doc.addPage(); 
-                    yPos = 20; 
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
                 }
             })
 
             const pageCount = doc.internal.pages.length - 1;
-            for(let i = 1; i <= pageCount; i++) {
+            for (let i = 1; i <= pageCount; i++) {
                 doc.setPage(i);
                 doc.setFontSize(8);
                 doc.setTextColor(150);
@@ -227,11 +340,11 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
             doc.save(`${tripInfo.title.replace(/\s+/g, '_')}.pdf`)
 
-        } catch (e: any) { 
+        } catch (e: any) {
             console.error(e)
-            alert('Errore generazione PDF: ' + e.message) 
-        } finally { 
-            setExporting(false) 
+            alert('Errore generazione PDF: ' + e.message)
+        } finally {
+            setExporting(false)
         }
     }
 
@@ -249,14 +362,49 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     // Save activity (new or edited)
     const handleSave = async () => {
         if (!selectedDay) return
-
         if (!activityForm.title || !activityForm.startTime) {
             return alert('Devi inserire un Titolo e un Orario di inizio!')
         }
 
-        const payload = { type: activityForm.type, title: activityForm.title, start_time: activityForm.startTime || null, duration_minutes: activityForm.duration, notes: activityForm.notes, day_id: selectedDay.id }
-        if (editingActivityId) await supabase.from('activities').update(payload).eq('id', editingActivityId); else await supabase.from('activities').insert([payload]);
-        setShowActivityModal(false); fetchActivities(selectedDay.id)
+        // Check for time conflicts with existing activities
+        const getMinutes = (timeStr: string) => {
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+        }
+
+        const newStart = getMinutes(activityForm.startTime);
+        const newEnd = newStart + activityForm.duration;
+
+        const conflict = activities.find(act => {
+            if (act.id === editingActivityId || !act.start_time) return false;
+
+            const actStart = getMinutes(act.start_time.slice(0, 5));
+            const actEnd = actStart + (act.duration_minutes || 0);
+
+            return (newStart < actEnd && actStart < newEnd);
+        });
+
+        if (conflict) {
+            return alert(`Impossibile aggiungere! Si sovrappone con "${conflict.title}" (${conflict.start_time?.slice(0, 5)} - ${conflict.duration_minutes}min).`);
+        }
+
+        const payload = {
+            type: activityForm.type,
+            title: activityForm.title,
+            start_time: activityForm.startTime || null,
+            duration_minutes: activityForm.duration,
+            notes: activityForm.notes,
+            day_id: selectedDay.id
+        }
+
+        if (editingActivityId) {
+            await supabase.from('activities').update(payload).eq('id', editingActivityId)
+        } else {
+            await supabase.from('activities').insert([payload])
+        }
+
+        setShowActivityModal(false)
+        fetchActivities(selectedDay.id)
     }
 
     // Handle Drag & Drop
@@ -320,6 +468,84 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                             </div>
                         ))}
                     </div>
+                    {/* AI BUTTON */}
+                    <button
+                        className="ai-fab"
+                        onClick={() => {
+                            setShowAssistant(true);
+                            if (!tripInfo.accommodation_info) setHotelInput('');
+                        }}
+                        title="Chiedi all'AI"
+                    >
+                        <Lightbulb size={24} />
+                    </button>
+
+                    {/* DRAWER AI */}
+                    {showAssistant && (
+                        <div className="assistant-drawer">
+                            <div className="assistant-header">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                    <h3 style={{ margin: 0, display: 'flex', gap: 8, alignItems: 'center', color: 'var(--primary)' }}>
+                                        <Sparkles size={18} /> Assistente
+                                    </h3>
+                                    <button onClick={() => setShowAssistant(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+                                </div>
+
+                                {!tripInfo.accommodation_info && (
+                                    <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Dove alloggi?</label>
+                                        <input
+                                            className="input-field"
+                                            style={{ padding: 8, fontSize: '0.9rem' }}
+                                            placeholder="Hotel o Quartiere"
+                                            value={hotelInput}
+                                            onChange={e => setHotelInput(e.target.value)}
+                                        />
+                                    </div>
+                                )}
+
+                                <button
+                                    className="btn-primary"
+                                    style={{ fontSize: '0.9rem', padding: 8 }}
+                                    onClick={handleAskAssistant}
+                                    disabled={aiLoading}
+                                >
+                                    {aiLoading ? 'Sto pensando...' : 'Suggeriscimi Attività'}
+                                </button>
+                            </div>
+
+                            <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
+                                {aiSuggestions.map((sugg, i) => (
+                                    <div key={i} className="ai-card">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <h4 style={{ margin: '0 0 5px 0', fontSize: '1rem' }}>{sugg.title}</h4>
+                                            <span style={{ fontSize: '0.7rem', background: '#FFF7ED', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--primary)', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                {sugg.cost || 'Prezzo var.'}
+                                            </span>
+                                        </div>
+
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>{sugg.description}</p>
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-main)' }}>⏱ {sugg.duration} min</span>
+                                            <button
+                                                onClick={() => handleAddSuggestion(sugg)}
+                                                style={{ background: 'var(--primary-light)', color: 'var(--primary)', border: 'none', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                title="Aggiungi al piano"
+                                            >
+                                                <Plus size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {aiSuggestions.length === 0 && !aiLoading && (
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: 20 }}>
+                                        Clicca il bottone per ricevere 3 consigli su cosa fare in zona!
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* TIMELINE */}
