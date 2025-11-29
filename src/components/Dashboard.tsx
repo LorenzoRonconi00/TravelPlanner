@@ -22,6 +22,9 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
     const [trips, setTrips] = useState<Trip[]>([])
     const [loading, setLoading] = useState(true)
     const [showModal, setShowModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [tripToDelete, setTripToDelete] = useState<string | null>(null)
+    const [errorMsg, setErrorMsg] = useState('')
     const [editingTripId, setEditingTripId] = useState<string | null>(null)
 
     const [formData, setFormData] = useState({
@@ -49,21 +52,27 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         setLoading(false)
     }
 
-    // Delete trip
-    const handleDeleteTrip = async (e: React.MouseEvent, tripId: string) => {
+    // State handlers for delete modal
+    const handleDeleteTrip = (e: React.MouseEvent, tripId: string) => {
         e.stopPropagation()
+        setTripToDelete(tripId)
+        setShowDeleteModal(true)
+    }
 
-        if (!confirm('Sei sicuro di voler cancellare questo viaggio? Tutti i giorni e le attività verranno persi.')) {
-            return
-        }
+    const confirmDelete = async () => {
+        if (!tripToDelete) return
 
-        const { error } = await supabase.from('trips').delete().eq('id', tripId)
+        const { error } = await supabase.from('trips').delete().eq('id', tripToDelete)
 
         if (error) {
-            alert('Errore durante la cancellazione: ' + error.message)
+            alert('Errore cancellazione: ' + error.message)
         } else {
             fetchTrips()
         }
+
+        // Chiudi e pulisci
+        setShowDeleteModal(false)
+        setTripToDelete(null)
     }
 
     // Fetch image from Unsplash
@@ -88,16 +97,18 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
 
     // Create trip
     const handleCreateTrip = async () => {
+        setErrorMsg('')
+
         if (!formData.title || !formData.startDate || !formData.endDate || !formData.destination) {
-            return alert('Compila i campi obbligatori!')
+            return setErrorMsg('Per favore, compila tutti i campi obbligatori (*).')
         }
 
         const start = new Date(formData.startDate)
         const end = new Date(formData.endDate)
         const diffTime = end.getTime() - start.getTime()
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        if (diffDays < 0) return alert('Date non valide!')
-        if (diffDays > 30) return alert('Max 30 giorni!')
+        if (diffDays < 0) return setErrorMsg('La data di fine deve essere successiva all\'inizio.')
+        if (diffDays > 30) return setErrorMsg('Il viaggio non può durare più di 30 giorni.')
 
         const accomInfo = formData.accommodation
             ? `Alloggio: ${formData.accommodation}${formData.airport ? ` | Arrivo: ${formData.airport}` : ''}`
@@ -149,7 +160,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
             .select()
             .single()
 
-        if (tripError) return alert(tripError.message)
+        if (tripError) return setErrorMsg(tripError.message)
 
         if (tripData) {
             const daysArray = []
@@ -181,6 +192,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
             airport: trip.accommodation_info && trip.accommodation_info.includes('| Arrivo:') ? trip.accommodation_info.split('| Arrivo: ')[1] : ''
         })
 
+        setErrorMsg('')
         setShowModal(true)
     }
 
@@ -188,6 +200,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
     const openNewTripModal = () => {
         setEditingTripId(null)
         setFormData({ title: '', destination: '', startDate: '', endDate: '', accommodation: '', airport: '' })
+        setErrorMsg('')
         setShowModal(true)
     }
 
@@ -299,10 +312,36 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                                 <input className="input-field" value={formData.accommodation} onChange={e => setFormData({ ...formData, accommodation: e.target.value })} placeholder="Nome Alloggio..." />
                             </div>
                         </div>
+
+                        {errorMsg && <div className="modal-error">{errorMsg}</div>}
+
                         <div className="modal-footer">
                             <button className="back-btn" onClick={() => setShowModal(false)}>Annulla</button>
                             <button className="btn-primary" style={{ width: 'auto' }} onClick={handleCreateTrip}>
                                 {editingTripId ? 'Salva Modifiche' : 'Crea'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DELETE MODAL */}
+            {showDeleteModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <h3 style={{ marginTop: 0, color: 'var(--text-main)' }}>Sei sicuro?</h3>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '25px' }}>
+                            Vuoi davvero cancellare questo viaggio? <br />
+                            Tutti i giorni e le attività verranno persi per sempre.
+                        </p>
+                        <div className="modal-footer" style={{ justifyContent: 'center' }}>
+                            <button className="back-btn" onClick={() => setShowDeleteModal(false)}>Annulla</button>
+                            <button
+                                className="btn-primary"
+                                style={{ width: 'auto', backgroundColor: 'var(--red-button)' }}
+                                onClick={confirmDelete}
+                            >
+                                Sì, elimina
                             </button>
                         </div>
                     </div>

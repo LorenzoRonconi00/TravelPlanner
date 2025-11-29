@@ -1,49 +1,89 @@
-import { app as o, ipcMain as R, shell as c, BrowserWindow as p } from "electron";
-import { fileURLToPath as T } from "node:url";
-import n from "node:path";
-const d = n.dirname(T(import.meta.url));
-process.env.APP_ROOT = n.join(d, "..");
-const l = process.env.VITE_DEV_SERVER_URL, _ = n.join(process.env.APP_ROOT, "dist-electron"), f = n.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = l ? n.join(process.env.APP_ROOT, "public") : f;
-const i = "travel-planner";
-process.defaultApp ? process.argv.length >= 2 && o.setAsDefaultProtocolClient(i, process.execPath, [n.resolve(process.argv[1])]) : o.setAsDefaultProtocolClient(i);
-let e;
-function a() {
-  e = new p({
+import { app, ipcMain, shell, BrowserWindow } from "electron";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
+process.env.APP_ROOT = path.join(__dirname$1, "..");
+const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
+const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
+const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
+const PROTOCOL = "travel-planner";
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient(PROTOCOL);
+}
+let win;
+function createWindow() {
+  win = new BrowserWindow({
     width: 1200,
     height: 800,
-    show: !1,
-    autoHideMenuBar: !0,
+    show: false,
+    autoHideMenuBar: true,
     webPreferences: {
-      preload: n.join(d, "preload.cjs"),
-      sandbox: !1,
-      contextIsolation: !0
+      preload: path.join(__dirname$1, "preload.cjs"),
+      sandbox: false,
+      contextIsolation: true
     }
-  }), e.on("ready-to-show", () => {
-    e == null || e.show();
-  }), e.webContents.setWindowOpenHandler((t) => (c.openExternal(t.url), { action: "deny" })), l ? e.loadURL(l) : e.loadFile(n.join(f, "index.html"));
-}
-const h = o.requestSingleInstanceLock();
-h ? (o.on("second-instance", (t, s) => {
-  if (console.log("⚡ EVENTO SECOND-INSTANCE SCATTATO!"), e) {
-    e.isMinimized() && e.restore(), e.focus();
-    const r = s.find((u) => u.startsWith(`${i}://`));
-    r && (console.log("🔗 URL TROVATO:", r), e.webContents.send("deep-link", r));
-  }
-}), o.on("open-url", (t, s) => {
-  t.preventDefault(), e && e.webContents.send("deep-link", s);
-}), o.whenReady().then(() => {
-  o.setAppUserModelId("com.travelplanner.app"), a(), R.handle("open-external-url", async (t, s) => {
-    await c.openExternal(s);
   });
-}), o.on("activate", () => {
-  p.getAllWindows().length === 0 && a();
-})) : o.quit();
-o.on("window-all-closed", () => {
-  process.platform !== "darwin" && (o.quit(), e = null);
+  win.on("ready-to-show", () => {
+    win == null ? void 0 : win.show();
+  });
+  win.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url);
+    return { action: "deny" };
+  });
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL);
+  } else {
+    win.loadFile(path.join(RENDERER_DIST, "index.html"));
+  }
+}
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_event, commandLine) => {
+    console.log("⚡ EVENTO SECOND-INSTANCE SCATTATO!");
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+      const url = commandLine.find((arg) => arg.startsWith(`${PROTOCOL}://`));
+      if (url) {
+        console.log("🔗 URL TROVATO:", url);
+        win.webContents.send("deep-link", url);
+      }
+    }
+  });
+  app.on("open-url", (event, url) => {
+    event.preventDefault();
+    if (win) {
+      win.webContents.send("deep-link", url);
+    }
+  });
+  app.whenReady().then(() => {
+    app.setAppUserModelId("com.travelplanner.app");
+    createWindow();
+    ipcMain.handle("open-external-url", async (_, url) => {
+      await shell.openExternal(url);
+    });
+  });
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+}
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+    win = null;
+  }
 });
 export {
-  _ as MAIN_DIST,
-  f as RENDERER_DIST,
-  l as VITE_DEV_SERVER_URL
+  MAIN_DIST,
+  RENDERER_DIST,
+  VITE_DEV_SERVER_URL
 };

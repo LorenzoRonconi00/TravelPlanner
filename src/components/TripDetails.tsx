@@ -77,6 +77,9 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const [activeDragItem, setActiveDragItem] = useState<any>(null)
 
     const [showActivityModal, setShowActivityModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [activityToDelete, setActivityToDelete] = useState<string | null>(null)
+    const [errorMsg, setErrorMsg] = useState('')
     const [editingActivityId, setEditingActivityId] = useState<string | null>(null)
     const [activityForm, setActivityForm] = useState({ type: '', title: '', startTime: '', duration: 60, notes: '' })
 
@@ -354,10 +357,22 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         }
     }
 
-    // Delete activity
-    const handleDelete = async (e: any, id: string) => {
-        e.stopPropagation(); if (!confirm('Eliminare?')) return;
-        await supabase.from('activities').delete().eq('id', id); if (selectedDay) fetchActivities(selectedDay.id)
+    // State handlers for delete modal
+    const handleDelete = (e: any, id: string) => {
+        e.stopPropagation()
+        setActivityToDelete(id)
+        setShowDeleteModal(true)
+    }
+
+    const confirmDelete = async () => {
+        if (!activityToDelete) return
+
+        await supabase.from('activities').delete().eq('id', activityToDelete)
+
+        if (selectedDay) fetchActivities(selectedDay.id)
+
+        setShowDeleteModal(false)
+        setActivityToDelete(null)
     }
 
     // Open edit modal
@@ -367,9 +382,11 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
     // Save activity (new or edited)
     const handleSave = async () => {
+        setErrorMsg('')
+
         if (!selectedDay) return
         if (!activityForm.title || !activityForm.startTime) {
-            return alert('Devi inserire un Titolo e un Orario di inizio!')
+            return setErrorMsg('Inserisci Titolo e Ora di inizio!')
         }
 
         // Check for time conflicts with existing activities
@@ -391,7 +408,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         });
 
         if (conflict) {
-            return alert(`Impossibile aggiungere! Si sovrappone con "${conflict.title}" (${conflict.start_time?.slice(0, 5)} - ${conflict.duration_minutes}min).`);
+            return setErrorMsg(`Sovrapposizione con "${conflict.title}" (${conflict.start_time?.slice(0, 5)}).`);
         }
 
         const payload = {
@@ -659,6 +676,8 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                 </div>
                             </div>
 
+                            {errorMsg && <div className="modal-error">{errorMsg}</div>}
+
                             <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 25 }}>
                                 <button
                                     className="back-btn"
@@ -669,6 +688,28 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                 </button>
                                 <button className="btn-primary" onClick={handleSave}>
                                     Salva
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* DELETE MODAL */}
+                {showDeleteModal && (
+                    <div className="modal-overlay">
+                        <div className="modal-content" style={{ maxWidth: '350px', textAlign: 'center' }}>
+                            <h3 style={{ marginTop: 0 }}>Elimina Attività</h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '25px' }}>
+                                Vuoi rimuovere questa attività dal programma?
+                            </p>
+                            <div className="modal-footer" style={{ justifyContent: 'center' }}>
+                                <button className="back-btn" onClick={() => setShowDeleteModal(false)}>No</button>
+                                <button
+                                    className="btn-primary"
+                                    style={{ width: 'auto', backgroundColor: 'var(--red-button)' }}
+                                    onClick={confirmDelete}
+                                >
+                                    Elimina
                                 </button>
                             </div>
                         </div>

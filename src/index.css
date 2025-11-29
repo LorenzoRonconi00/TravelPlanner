@@ -442,6 +442,20 @@ h4,
   margin-top: 25px;
 }
 
+.modal-error {
+  color: var(--red-button);
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-top: 15px;
+  margin-bottom: 5px;
+  text-align: center;
+  font-weight: 600;
+  animation: fadeIn 0.2s;
+}
+
 /* --- PLANNER --- */
 .planner-container {
   display: flex;
