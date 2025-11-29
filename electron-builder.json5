@@ -14,7 +14,15 @@
     "target": [
       "dmg"
     ],
-    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+    "artifactName": "${productName}-Mac-${version}-Installer.${ext}",
+    "extendInfo": {
+      "CFBundleURLTypes": [
+        {
+          "CFBundleURLSchemes": ["travel-planner"],
+          "CFBundleURLName": "Travel Planner Login"
+        }
+      ]
+    }
   },
   "win": {
     "target": [
