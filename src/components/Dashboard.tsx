@@ -27,6 +27,9 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
     const [errorMsg, setErrorMsg] = useState('')
     const [editingTripId, setEditingTripId] = useState<string | null>(null)
 
+    const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
+    const userName = user?.user_metadata?.full_name || user?.email;
+
     const [formData, setFormData] = useState({
         title: '',
         destination: '',
@@ -208,7 +211,19 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         <div className="dashboard-layout">
             <header className="dashboard-header">
                 <div className="brand-title">📔 Travel Planner</div>
-                <div className="user-profile">
+                <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+
+                    {/* SE C'È L'IMMAGINE, MOSTRALA */}
+                    {avatarUrl && (
+                        <img
+                            src={avatarUrl}
+                            alt={userName}
+                            className="user-avatar"
+                            title={userName}
+                            referrerPolicy='no-referrer'
+                        />
+                    )}
+
                     <button className="logout-btn" onClick={onLogout}>Logout</button>
                 </div>
             </header>

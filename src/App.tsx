@@ -38,7 +38,6 @@ function App(): JSX.Element {
               setMsg('Errore login: ' + error.message)
             } else {
               console.log("Sessione impostata con successo")
-              setMsg('Login Google OK!')
             }
           })
         }
