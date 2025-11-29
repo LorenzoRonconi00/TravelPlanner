@@ -150,7 +150,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         const data = await response.json();
         let textResponse = data.candidates[0].content.parts[0].text;
 
-        console.log("RISPOSTA GEMINI (" + mood + "):", textResponse);
 
         textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
 
@@ -234,6 +233,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
             const pageWidth = 210;
             const headerHeight = 80;
 
+            // HEADER
             if (base64Img) {
                 try {
                     doc.addImage(base64Img, 'JPEG', 0, 0, pageWidth, headerHeight, undefined, 'FAST');
@@ -260,7 +260,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
             doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 3, 3, 'F');
 
             doc.setTextColor(67, 20, 7);
-
             doc.setFont('times', 'bold');
             doc.setFontSize(20);
             doc.text(tripInfo.title, pageWidth / 2, cardY + 15, { align: 'center', maxWidth: cardWidth - 10 });
@@ -278,10 +277,17 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                 doc.text(cleanAccom, pageWidth / 2, cardY + 33, { align: 'center', maxWidth: cardWidth - 10 });
             }
 
+            // BODY
             let yPos = headerHeight + 15;
 
-            days.forEach((day) => {
+            days.forEach((day, index) => {
                 const dayActs = allActivities.filter((a: any) => a.day_id === day.id)
+
+                if (index > 0) {
+                    doc.setDrawColor(200, 200, 200);
+                    doc.setLineWidth(0.5);
+                    doc.line(15, yPos - 8, pageWidth - 15, yPos - 8);
+                }
 
                 doc.setFont('times', 'bold');
                 doc.setTextColor(194, 65, 12);
