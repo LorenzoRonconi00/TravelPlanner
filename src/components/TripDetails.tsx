@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
-import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Plus } from 'lucide-react'
+import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Plus, Home } from 'lucide-react'
 import { DndContext, useDraggable, useDroppable, DragOverlay, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { ErrorMessage } from './ui/ErrorMessage'
 import { ConfirmationModal } from './ui/ConfirmationModal'
@@ -117,31 +117,35 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         if (!apiKey) throw new Error("Manca la API Key di Gemini");
 
         const exclusionText = exclusions.length > 0
-            ? `IMPORTANTE: NON suggerire assolutamente le seguenti attività perché l'utente le ha già: ${exclusions.join(', ')}.`
+            ? `IMPORTANTE: NON suggerire assolutamente le seguenti attività: ${exclusions.join(', ')}.`
             : '';
 
         const prompt = `
-      Sei una guida locale esperta di ${destination}.
-      L'utente alloggia presso: "${accommodation}".
-      
-      Suggerisci 5 attività che siano **${mood}**.
-      ${exclusionText}
-      
-      Rispondi SOLO con un array JSON valido.
-      Per il campo "cost": DEVI inserire una stima (es. "Gratis", "€15").
-      
-      Formato richiesto:
-      [
-        {
-          "title": "Nome Attività",
-          "description": "Descrizione max 20 parole",
-          "duration": 60,
-          "cost": "Gratis o Prezzo", 
-          "type": "culture" 
-        }
-      ]
-      (type: 'culture', 'food', 'leisure', 'transport')
-    `;
+          Agisci come una guida turistica esperta.
+          
+          OBIETTIVO: Suggerisci 5 attività che si trovano ESATTAMENTE a (o molto vicino a): "${accommodation}".
+          
+          Contesto del viaggio: L'itinerario generale è a ${destination}. 
+          NOTA BENE: Se "${accommodation}" è una città diversa da ${destination}, IGNORA la destinazione del viaggio e cerca a "${accommodation}".
+          
+          Stile richiesto: Attività **${mood}**.
+          ${exclusionText}
+          
+          Rispondi SOLO con un array JSON valido.
+          Per il campo "cost": DEVI inserire una stima (es. "Gratis", "€15").
+          
+          Formato richiesto:
+          [
+            {
+              "title": "Nome Attività",
+              "description": "Descrizione max 20 parole",
+              "duration": 60,
+              "cost": "Gratis o Prezzo", 
+              "type": "culture" 
+            }
+          ]
+          (type: 'culture', 'food', 'leisure', 'transport')
+        `;
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
@@ -157,7 +161,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         const data = await response.json();
         let textResponse = data.candidates[0].content.parts[0].text;
 
-
         textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
 
         return JSON.parse(textResponse);
@@ -167,12 +170,11 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const handleAskAssistant = async () => {
         setAiError('');
         setAiLoading(true);
-        const accommodation = tripInfo.accommodation_info
-            ? tripInfo.accommodation_info.replace('Alloggio: ', '').split('|')[0]
-            : hotelInput;
 
-        if (!accommodation) {
-            setAiError("Inserisci il nome dell'hotel o la zona per avere suggerimenti precisi!");
+        const targetLocation = hotelInput.trim();
+
+        if (!targetLocation) {
+            setAiError("Inserisci una zona, un hotel o un punto di riferimento!");
             setAiLoading(false);
             return;
         }
@@ -185,7 +187,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
             const randomMood = TRIP_MOODS[Math.floor(Math.random() * TRIP_MOODS.length)];
 
-            const newSuggestions = await askGemini(tripInfo.destination, accommodation, exclusions, randomMood);
+            const newSuggestions = await askGemini(tripInfo.destination, targetLocation, exclusions, randomMood);
 
             setAiSuggestions(newSuggestions);
 
@@ -504,7 +506,10 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                         className="ai-fab"
                         onClick={() => {
                             setShowAssistant(true);
-                            if (!tripInfo.accommodation_info) setHotelInput('');
+                            if (!hotelInput && tripInfo.accommodation_info) {
+                                const cleanName = tripInfo.accommodation_info.replace('Alloggio: ', '').split('|')[0].trim();
+                                setHotelInput(cleanName);
+                            }
                         }}
                         title="Chiedi all'AI"
                     >
@@ -523,18 +528,50 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                     <button onClick={() => setShowAssistant(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
                                 </div>
 
-                                {!tripInfo.accommodation_info && (
-                                    <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Dove alloggi?</label>
-                                        <input
-                                            className="input-field"
-                                            style={{ padding: 8, fontSize: '0.9rem' }}
-                                            placeholder="Hotel o Quartiere"
-                                            value={hotelInput}
-                                            onChange={e => setHotelInput(e.target.value)}
-                                        />
-                                    </div>
-                                )}
+                                <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+                                    <label style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                                        Zona di ricerca
+                                    </label>
+
+                                    <input
+                                        className="input-field"
+                                        style={{ padding: '10px', fontSize: '0.95rem' }}
+                                        placeholder="Es. Centro storico, o nome Hotel"
+                                        value={hotelInput}
+                                        onChange={e => setHotelInput(e.target.value)}
+                                    />
+
+                                    {tripInfo.accommodation_info && (
+                                        <button
+                                            onClick={() => {
+                                                const cleanName = tripInfo.accommodation_info.replace('Alloggio: ', '').split('|')[0].trim();
+                                                setHotelInput(cleanName);
+                                            }}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                alignSelf: 'flex-start',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 600,
+                                                color: 'var(--primary)',
+                                                backgroundColor: '#FFF7ED',
+                                                border: '1px solid var(--primary)',
+                                                borderRadius: '20px',
+                                                padding: '6px 12px',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            title="Usa l'indirizzo salvato nel viaggio"
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#ffedd5'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFF7ED'}
+                                        >
+                                            <Home size={12} />
+                                            <span>Usa: {tripInfo.accommodation_info.replace('Alloggio: ', '').split('|')[0].trim()}</span>
+                                        </button>
+                                    )}
+                                </div>
 
                                 <ErrorMessage message={aiError} />
 
