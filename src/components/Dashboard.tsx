@@ -4,6 +4,8 @@ import { TripCard } from './TripCard'
 import { TripFormModal } from './TripFormModal'
 import { ConfirmationModal } from './ui/ConfirmationModal'
 import { Trip } from '../types/types'
+import { Users } from 'lucide-react'
+import { FriendsModal } from './FriendsModal'
 
 interface DashboardProps {
     user: any
@@ -26,10 +28,20 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         title: '', destination: '', startDate: '', endDate: '', accommodation: '', airport: ''
     })
 
+    const [showFriendsModal, setShowFriendsModal] = useState(false)
+    const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
+
     const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
     const userName = user?.user_metadata?.full_name || user?.email;
 
     useEffect(() => { fetchTrips() }, [])
+
+    useEffect(() => {
+        fetchTrips()
+        fetchPendingCount()
+    }, [])
+
+    //#region TRIPS
 
     const fetchTrips = async () => {
         setLoading(true)
@@ -50,26 +62,6 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         const { error } = await supabase.from('trips').delete().eq('id', tripToDelete)
         if (error) setErrorMsg('Errore cancellazione: ' + error.message)
         else { fetchTrips(); setShowDeleteModal(false); setTripToDelete(null); }
-    }
-
-    // Fetch image from Unsplash
-    const fetchUnsplashImage = async (query: string): Promise<string | null> => {
-        const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY
-        if (!accessKey) return null
-
-        try {
-            const response = await fetch(
-                `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=landscape&per_page=1`,
-                { headers: { Authorization: `Client-ID ${accessKey}` } }
-            )
-            const data = await response.json()
-            if (data.results && data.results.length > 0) {
-                return data.results[0].urls.regular
-            }
-        } catch (error) {
-            console.error("Errore Unsplash:", error)
-        }
-        return null
     }
 
     const handleSaveTrip = async (data: typeof formData) => {
@@ -118,6 +110,50 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         }
     }
 
+    //#endregion
+
+    //#region FRIENDS
+
+    const fetchPendingCount = async () => {
+        const { count, error } = await supabase
+            .from('friendships')
+            .select('*', { count: 'exact', head: true })
+            .eq('receiver_id', user.id)
+            .eq('status', 'pending')
+
+        if (!error && count !== null) {
+            setPendingRequestsCount(count)
+        }
+    }
+
+    //#endregion
+
+    //#region UNSPLASH
+
+    // Fetch image from Unsplash
+    const fetchUnsplashImage = async (query: string): Promise<string | null> => {
+        const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY
+        if (!accessKey) return null
+
+        try {
+            const response = await fetch(
+                `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=landscape&per_page=1`,
+                { headers: { Authorization: `Client-ID ${accessKey}` } }
+            )
+            const data = await response.json()
+            if (data.results && data.results.length > 0) {
+                return data.results[0].urls.regular
+            }
+        } catch (error) {
+            console.error("Errore Unsplash:", error)
+        }
+        return null
+    }
+
+    //#endregion
+
+    //#region MODAL
+
     // --- HANDLERS UI ---
     const handleEditClick = (e: React.MouseEvent, trip: Trip) => {
         e.stopPropagation()
@@ -137,16 +173,70 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         setShowModal(true)
     }
 
+    //#endregion
+
     return (
         <div className="dashboard-layout">
             <header className="dashboard-header">
+
+                {/* TITLE */}
                 <div className="brand-title">📔 Travel Planner</div>
-                <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+
+                <div className="user-profile">
+                    {/* AVATAR */}
                     {avatarUrl && <img src={avatarUrl} alt={userName} className="user-avatar" referrerPolicy='no-referrer' title={userName} />}
+
+                    {/* FRIENDS BUTTON */}
+                    <button
+                        onClick={() => setShowFriendsModal(true)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: 'white',
+                            border: '1px solid var(--border-color)',
+                            padding: '8px 16px',
+                            borderRadius: '20px',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            color: 'var(--text-main)',
+                            transition: 'all 0.2s',
+                            position: 'relative'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-main)'; }}
+                    >
+                        <Users size={18} />
+                        Amici
+
+                        {/* NOTIFICATION BUTTON */}
+                        {pendingRequestsCount > 0 && (
+                            <span style={{
+                                position: 'absolute',
+                                top: -5,
+                                right: -5,
+                                backgroundColor: '#ef4444',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: '20px',
+                                height: '20px',
+                                fontSize: '0.75rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                            }}>
+                                {pendingRequestsCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* LOGOUT BUTTON */}
                     <button className="logout-btn" onClick={onLogout}>Logout</button>
                 </div>
             </header>
 
+            {/* MAIN */}
             <main className="dashboard-content">
                 <h2 style={{ marginBottom: '30px', color: 'var(--text-main)' }}>I tuoi Itinerari</h2>
                 <div className="trips-grid">
@@ -179,6 +269,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                 </div>
             </main>
 
+            {/* TRIP MODAL */}
             <TripFormModal
                 isOpen={showModal}
                 isEditing={!!editingTripId}
@@ -188,6 +279,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                 errorMsg={errorMsg}
             />
 
+            {/* DELETE CONFIRMATION MODAL */}
             <ConfirmationModal
                 isOpen={showDeleteModal}
                 onClose={() => setShowDeleteModal(false)}
@@ -196,6 +288,14 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                 message="Sei sicuro? Tutti i giorni e le attività verranno persi per sempre."
                 confirmText="Sì, elimina"
                 isDangerous={true}
+            />
+
+            {/* FRIENDS MODAL */}
+            <FriendsModal
+                isOpen={showFriendsModal}
+                onClose={() => setShowFriendsModal(false)}
+                pendingCount={pendingRequestsCount}
+                onUpdate={fetchPendingCount}
             />
         </div>
     )
