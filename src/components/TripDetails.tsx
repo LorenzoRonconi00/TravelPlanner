@@ -447,6 +447,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         }
     }
 
+    // Handle Drag End
     const handleDragEnd = (e: DragEndEvent) => {
         setActiveDragItem(null);
 
@@ -473,7 +474,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
             else if (data.type) {
                 setActivityForm({
                     type: data.type,
-                    title: data.label,
+                    title: '',
                     startTime: '',
                     duration: 60,
                     notes: ''
@@ -484,6 +485,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         }
     }
 
+    // Handle Transport Confirmation
     const handleTransportConfirm = (tData: TransportData) => {
         setShowTransportModal(false);
 
@@ -502,6 +504,32 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         });
 
         setShowActivityModal(true);
+    }
+
+    // Get modal title based on type and editing state
+    const getModalTitle = (type: string, isEditing: boolean) => {
+        const action = isEditing ? 'Modifica' : 'Aggiungi';
+
+        switch (type) {
+            case 'culture': return `${action} Cultura`;
+            case 'food': return `${action} Ristorazione`;
+            case 'transport': return `${action} Trasporto`;
+            case 'hotel': return `${action} Alloggio`;
+            case 'leisure': return `${action} Svago`;
+            default: return `${action} Attività`;
+        }
+    }
+
+    // Get title placeholder based on activity type
+    const getTitlePlaceholder = (type: string) => {
+        switch (type) {
+            case 'culture': return 'Es. Museo del Louvre, Galleria...';
+            case 'food': return 'Es. Ristorante da Mario, Pranzo...';
+            case 'hotel': return 'Es. Check-in Hotel, Airbnb...';
+            case 'leisure': return 'Es. Passeggiata, Shopping...';
+            case 'transport': return 'Volo, Treno...';
+            default: return 'Nome dell\'attività';
+        }
     }
 
     if (loading) return <div className="dashboard-content">Caricamento...</div>
@@ -733,8 +761,14 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                     <div className="modal-overlay">
                         <div className="modal-content">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                                <h2 style={{ margin: 0, color: 'var(--text-main)' }}>
-                                    {editingActivityId ? 'Modifica' : 'Nuova'} Attività
+                                <h2 style={{ margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+
+                                    <span>
+                                        {ACTIVITY_TYPES.find(t => t.type === activityForm.type)?.icon}
+                                    </span>
+
+                                    {getModalTitle(activityForm.type, !!editingActivityId)}
+
                                 </h2>
                                 <button onClick={() => setShowActivityModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                                     <X size={24} />
@@ -749,6 +783,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                         value={activityForm.title}
                                         onChange={e => setActivityForm({ ...activityForm, title: e.target.value })}
                                         autoFocus
+                                        placeholder={getTitlePlaceholder(activityForm.type)}
                                     />
                                 </div>
 
