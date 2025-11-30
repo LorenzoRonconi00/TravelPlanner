@@ -3,6 +3,7 @@ import { supabase } from '../SupabaseClient'
 import { Trash2, Edit2 } from 'lucide-react'
 import { ErrorMessage } from './ui/ErrorMessage'
 import { ConfirmationModal } from './ui/ConfirmationModal'
+import { CityAutocomplete } from './ui/CityAutocomplete'
 
 interface Trip {
     id: string
@@ -321,7 +322,11 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
 
                             <div className='input-subgroup'>
                                 <label style={{ fontWeight: 'bold' }}>Destinazione *</label>
-                                <input className="input-field" value={formData.destination} onChange={e => setFormData({ ...formData, destination: e.target.value })} placeholder="Città o Paese" />
+                                <CityAutocomplete
+                                    value={formData.destination}
+                                    onChange={(val) => setFormData({ ...formData, destination: val })}
+                                    placeholder="Cerca città (es. Parigi)"
+                                />
                             </div>
 
                             <div className='input-subgroup'>

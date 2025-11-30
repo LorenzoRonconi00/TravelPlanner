@@ -587,7 +587,6 @@ h4,
 
 .custom-select-trigger {
   background-color: #F5F5F4;
-  /* Stesso colore degli input */
   border: 2px solid transparent;
   padding: 12px;
   border-radius: 12px;
@@ -595,7 +594,6 @@ h4,
   cursor: pointer;
   display: flex;
   justify-content: space-between;
-  /* Testo a sx, freccia a dx */
   align-items: center;
   transition: all 0.2s;
   font-family: 'Nunito', sans-serif;
@@ -613,11 +611,9 @@ h4,
   box-shadow: 0 0 0 4px var(--primary-light);
 }
 
-/* Il menu a tendina che si apre */
 .custom-select-dropdown {
   position: absolute;
   top: 110%;
-  /* Poco sotto il trigger */
   left: 0;
   right: 0;
   background-color: white;
@@ -625,10 +621,8 @@ h4,
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   z-index: 100;
-  /* Sopra tutto */
   max-height: 200px;
   overflow-y: auto;
-  /* Scroll se ci sono tante opzioni */
   animation: fadeIn 0.1s ease-out;
 }
 
@@ -645,7 +639,6 @@ h4,
 
 .custom-select-option:hover {
   background-color: #FFF7ED;
-  /* Crema chiaro */
   color: var(--primary);
 }
 
