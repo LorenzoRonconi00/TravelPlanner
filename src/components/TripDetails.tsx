@@ -5,6 +5,7 @@ import { DndContext, useDraggable, useDroppable, DragOverlay, DragEndEvent, Drag
 import { ErrorMessage } from './ui/ErrorMessage'
 import { ConfirmationModal } from './ui/ConfirmationModal'
 import { DraggableAiCard } from './DraggableAiCard'
+import { TransportModal, TransportData } from './TransportModal'
 
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -34,7 +35,7 @@ interface Activity {
 const ACTIVITY_TYPES = [
     { type: 'culture', label: 'Cultura', icon: <Landmark size={20} /> },
     { type: 'food', label: 'Cibo', icon: <Coffee size={20} /> },
-    { type: 'transport', label: 'Volo', icon: <Plane size={20} /> },
+    { type: 'transport', label: 'Trasporti', icon: <Plane size={20} /> },
     { type: 'hotel', label: 'Hotel/Appartamento', icon: <Hotel size={20} /> },
     { type: 'leisure', label: 'Svago', icon: <Ticket size={20} /> },
 ]
@@ -75,6 +76,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const [selectedDay, setSelectedDay] = useState<Day | null>(null)
     const [activities, setActivities] = useState<Activity[]>([])
     const [tripInfo, setTripInfo] = useState<any>(null)
+    const [showTransportModal, setShowTransportModal] = useState(false)
     const [loading, setLoading] = useState(true)
     const [exporting, setExporting] = useState(false)
     const [activeDragItem, setActiveDragItem] = useState<any>(null)
@@ -454,6 +456,11 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
             setEditingActivityId(null);
 
+            if (data.type === 'transport') {
+                setShowTransportModal(true);
+                return;
+            }
+
             if (data.source === 'ai') {
                 setActivityForm({
                     type: data.type || 'leisure',
@@ -475,6 +482,26 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
             setShowActivityModal(true)
         }
+    }
+
+    const handleTransportConfirm = (tData: TransportData) => {
+        setShowTransportModal(false);
+
+        const title = `${tData.type} ${tData.number ? tData.number : ''}`.trim();
+
+        let notes = '';
+        if (tData.from) notes += `Da: ${tData.from}\n`;
+        if (tData.to) notes += `A: ${tData.to}`;
+
+        setActivityForm({
+            type: 'transport',
+            title: title,
+            startTime: '',
+            duration: 60,
+            notes: notes.trim()
+        });
+
+        setShowActivityModal(true);
     }
 
     if (loading) return <div className="dashboard-content">Caricamento...</div>
@@ -693,6 +720,13 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                         )
                     ) : null}
                 </DragOverlay>
+
+                {/* TRANSPORT MODAL */}
+                <TransportModal
+                    isOpen={showTransportModal}
+                    onClose={() => setShowTransportModal(false)}
+                    onConfirm={handleTransportConfirm}
+                />
 
                 {/* MODAL */}
                 {showActivityModal && (

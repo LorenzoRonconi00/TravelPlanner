@@ -213,7 +213,7 @@ h4,
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid white;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .brand-title {
@@ -580,6 +580,81 @@ h4,
   background: var(--primary-light);
 }
 
+.custom-select-container {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select-trigger {
+  background-color: #F5F5F4;
+  /* Stesso colore degli input */
+  border: 2px solid transparent;
+  padding: 12px;
+  border-radius: 12px;
+  color: var(--text-main);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  /* Testo a sx, freccia a dx */
+  align-items: center;
+  transition: all 0.2s;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+}
+
+.custom-select-trigger:hover {
+  background-color: #FFF;
+  border-color: var(--border-color);
+}
+
+.custom-select-trigger.open {
+  background-color: #FFF;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+/* Il menu a tendina che si apre */
+.custom-select-dropdown {
+  position: absolute;
+  top: 110%;
+  /* Poco sotto il trigger */
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  /* Sopra tutto */
+  max-height: 200px;
+  overflow-y: auto;
+  /* Scroll se ci sono tante opzioni */
+  animation: fadeIn 0.1s ease-out;
+}
+
+.custom-select-option {
+  padding: 10px 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  transition: background 0.1s;
+}
+
+.custom-select-option:hover {
+  background-color: #FFF7ED;
+  /* Crema chiaro */
+  color: var(--primary);
+}
+
+.custom-select-option.selected {
+  background-color: var(--primary-light);
+  font-weight: bold;
+  color: var(--primary);
+}
+
 .activity-card {
   background-color: #FFF;
   border: 1px solid var(--border-color);
@@ -776,6 +851,11 @@ h4,
 }
 
 @keyframes subtleBounce {
-  from { transform: translateX(-50%) translateY(0); }
-  to { transform: translateX(-50%) translateY(-6px); }
+  from {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  to {
+    transform: translateX(-50%) translateY(-6px);
+  }
 }
