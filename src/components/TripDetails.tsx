@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
-import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Plus, Home } from 'lucide-react'
+import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Home } from 'lucide-react'
 import { DndContext, useDraggable, useDroppable, DragOverlay, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { ErrorMessage } from './ui/ErrorMessage'
 import { ConfirmationModal } from './ui/ConfirmationModal'
+import { DraggableAiCard } from './DraggableAiCard'
 
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -197,19 +198,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         } finally {
             setAiLoading(false);
         }
-    };
-
-    // Function to add suggestion to activities
-    const handleAddSuggestion = (suggestion: any) => {
-        setEditingActivityId(null);
-        setActivityForm({
-            type: suggestion.type || 'leisure',
-            title: suggestion.title,
-            startTime: '',
-            duration: suggestion.duration,
-            notes: `${suggestion.description}\n\nCosto: ${suggestion.cost}`
-        });
-        setShowActivityModal(true);
     };
 
     // Helper function to get base64 image from URL
@@ -441,12 +429,50 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     }
 
     // Handle Drag & Drop
-    const handleDragStart = (e: DragStartEvent) => { const tool = ACTIVITY_TYPES.find(t => t.type === e.active.data.current?.type); if (tool) setActiveDragItem(tool) }
+    const handleDragStart = (e: DragStartEvent) => {
+        const data = e.active.data.current;
+        if (!data) return;
+
+        if (data.source === 'ai') {
+            setActiveDragItem({
+                source: 'ai',
+                ...data
+            });
+        }
+        else if (data.type) {
+            const tool = ACTIVITY_TYPES.find(t => t.type === data.type);
+            if (tool) setActiveDragItem(tool)
+        }
+    }
+
     const handleDragEnd = (e: DragEndEvent) => {
         setActiveDragItem(null);
-        if (e.over && e.over.id === 'timeline-drop-zone' && selectedDay && e.active.data.current?.type) {
+
+        if (e.over && e.over.id === 'timeline-drop-zone' && selectedDay) {
+            const data = e.active.data.current;
+            if (!data) return;
+
             setEditingActivityId(null);
-            setActivityForm({ type: e.active.data.current.type, title: e.active.data.current.label, startTime: '', duration: 60, notes: '' });
+
+            if (data.source === 'ai') {
+                setActivityForm({
+                    type: data.type || 'leisure',
+                    title: data.title,
+                    startTime: '',
+                    duration: data.duration,
+                    notes: `${data.description}\n\nCosto: ${data.cost}`
+                });
+            }
+            else if (data.type) {
+                setActivityForm({
+                    type: data.type,
+                    title: data.label,
+                    startTime: '',
+                    duration: 60,
+                    notes: ''
+                });
+            }
+
             setShowActivityModal(true)
         }
     }
@@ -587,28 +613,9 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
                             <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
                                 {aiSuggestions.map((sugg, i) => (
-                                    <div key={i} className="ai-card">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <h4 style={{ margin: '0 0 5px 0', fontSize: '1rem' }}>{sugg.title}</h4>
-                                            <span style={{ fontSize: '0.7rem', background: '#FFF7ED', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--primary)', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                                {sugg.cost || 'Prezzo var.'}
-                                            </span>
-                                        </div>
-
-                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>{sugg.description}</p>
-
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-main)' }}>⏱ {sugg.duration} min</span>
-                                            <button
-                                                onClick={() => handleAddSuggestion(sugg)}
-                                                style={{ background: 'var(--primary-light)', color: 'var(--primary)', border: 'none', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                title="Aggiungi al piano"
-                                            >
-                                                <Plus size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
+                                    <DraggableAiCard key={i} suggestion={sugg} index={i} />
                                 ))}
+
                                 {aiSuggestions.length === 0 && !aiLoading && (
                                     <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: 20 }}>
                                         Clicca il bottone per ricevere 3 consigli su cosa fare in zona!
@@ -653,7 +660,39 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                     {ACTIVITY_TYPES.map(t => <DraggableToolItem key={t.type} type={t.type} label={t.label} icon={t.icon} />)}
                 </div>
 
-                <DragOverlay>{activeDragItem && <div className="drag-overlay-item">{activeDragItem.icon}<span>{activeDragItem.label}</span></div>}</DragOverlay>
+                <DragOverlay dropAnimation={null}>
+                    {activeDragItem ? (
+                        activeDragItem.source === 'ai' ? (
+                            <div style={{
+                                width: '280px',
+                                backgroundColor: 'white',
+                                borderRadius: '12px',
+                                padding: '15px',
+                                border: '2px solid var(--primary)',
+                                boxShadow: '0 15px 30px rgba(0,0,0,0.2)',
+                                cursor: 'grabbing',
+                                transform: 'rotate(2deg)'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <h4 style={{ margin: '0 0 5px 0', fontSize: '1rem' }}>{activeDragItem.title}</h4>
+                                    <span style={{ fontSize: '0.7rem', background: '#FFF7ED', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--primary)', fontWeight: 'bold' }}>
+                                        {activeDragItem.cost || 'Prezzo var.'}
+                                    </span>
+                                </div>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
+                                    {activeDragItem.description}
+                                </p>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-main)' }}>
+                                    ⏱ {activeDragItem.duration} min
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="drag-overlay-item">
+                                {activeDragItem.icon}<span>{activeDragItem.label}</span>
+                            </div>
+                        )
+                    ) : null}
+                </DragOverlay>
 
                 {/* MODAL */}
                 {showActivityModal && (
