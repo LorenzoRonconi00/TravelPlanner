@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
 import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Plus } from 'lucide-react'
 import { DndContext, useDraggable, useDroppable, DragOverlay, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import { ErrorMessage } from './ui/ErrorMessage'
+import { ConfirmationModal } from './ui/ConfirmationModal'
 
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -80,6 +82,8 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [activityToDelete, setActivityToDelete] = useState<string | null>(null)
     const [errorMsg, setErrorMsg] = useState('')
+    const [aiError, setAiError] = useState('')
+    const [pdfError, setPdfError] = useState('')
     const [editingActivityId, setEditingActivityId] = useState<string | null>(null)
     const [activityForm, setActivityForm] = useState({ type: '', title: '', startTime: '', duration: 60, notes: '' })
 
@@ -161,13 +165,14 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
     // Handle AI Assistant Request
     const handleAskAssistant = async () => {
+        setAiError('');
         setAiLoading(true);
         const accommodation = tripInfo.accommodation_info
             ? tripInfo.accommodation_info.replace('Alloggio: ', '').split('|')[0]
             : hotelInput;
 
         if (!accommodation) {
-            alert("Inserisci il nome dell'hotel o la zona per avere suggerimenti precisi!");
+            setAiError("Inserisci il nome dell'hotel o la zona per avere suggerimenti precisi!");
             setAiLoading(false);
             return;
         }
@@ -186,7 +191,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
         } catch (e: any) {
             console.error(e);
-            alert("Errore AI: " + e.message);
+            setAiError("Errore AI: " + e.message);
         } finally {
             setAiLoading(false);
         }
@@ -223,6 +228,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
     // Export PDF function
     const handleExportPdf = async () => {
+        setPdfError('');
         setExporting(true)
         try {
             const dayIds = days.map(d => d.id)
@@ -351,7 +357,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
         } catch (e: any) {
             console.error(e)
-            alert('Errore generazione PDF: ' + e.message)
+            setPdfError('Errore generazione PDF: ' + e.message)
         } finally {
             setExporting(false)
         }
@@ -527,6 +533,8 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                     </div>
                                 )}
 
+                                <ErrorMessage message={aiError} />
+
                                 <button
                                     className="btn-primary"
                                     style={{ fontSize: '0.9rem', padding: 8 }}
@@ -579,6 +587,9 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                 <div><h1 style={{ margin: 0 }}>Giorno {selectedDay.day_number}</h1></div>
                                 <button onClick={handleExportPdf} disabled={exporting} className="btn-primary" style={{ width: 'auto', padding: '8px 16px', display: 'flex', gap: 5 }}><Download size={18} /> PDF</button>
                             </div>
+
+                            <ErrorMessage message={pdfError} />
+
                             <DroppableTimeline>
                                 {activities.length === 0 ? <div style={{ color: 'var(--text-muted)', margin: 'auto' }}>Trascina le attività qui</div> : activities.map(act => (
                                     <div key={act.id} className="activity-card" onClick={() => openEdit(act)} style={{ cursor: 'pointer' }}>
@@ -676,7 +687,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                 </div>
                             </div>
 
-                            {errorMsg && <div className="modal-error">{errorMsg}</div>}
+                            <ErrorMessage message={errorMsg} />
 
                             <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 25 }}>
                                 <button
@@ -695,26 +706,15 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                 )}
 
                 {/* DELETE MODAL */}
-                {showDeleteModal && (
-                    <div className="modal-overlay">
-                        <div className="modal-content" style={{ maxWidth: '350px', textAlign: 'center' }}>
-                            <h3 style={{ marginTop: 0 }}>Elimina Attività</h3>
-                            <p style={{ color: 'var(--text-muted)', marginBottom: '25px' }}>
-                                Vuoi rimuovere questa attività dal programma?
-                            </p>
-                            <div className="modal-footer" style={{ justifyContent: 'center' }}>
-                                <button className="back-btn" onClick={() => setShowDeleteModal(false)}>No</button>
-                                <button
-                                    className="btn-primary"
-                                    style={{ width: 'auto', backgroundColor: 'var(--red-button)' }}
-                                    onClick={confirmDelete}
-                                >
-                                    Elimina
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <ConfirmationModal
+                    isOpen={showDeleteModal}
+                    onClose={() => setShowDeleteModal(false)}
+                    onConfirm={confirmDelete}
+                    title="Elimina Attività"
+                    message="Vuoi rimuovere questa attività dal programma?"
+                    confirmText="Elimina"
+                    isDangerous={true}
+                />
             </div>
         </DndContext>
     )

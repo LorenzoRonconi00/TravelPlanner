@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
 import { Trash2, Edit2 } from 'lucide-react'
+import { ErrorMessage } from './ui/ErrorMessage'
+import { ConfirmationModal } from './ui/ConfirmationModal'
 
 interface Trip {
     id: string
@@ -328,7 +330,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                             </div>
                         </div>
 
-                        {errorMsg && <div className="modal-error">{errorMsg}</div>}
+                        <ErrorMessage message={errorMsg} />
 
                         <div className="modal-footer">
                             <button className="back-btn" onClick={() => setShowModal(false)}>Annulla</button>
@@ -341,27 +343,15 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
             )}
 
             {/* DELETE MODAL */}
-            {showDeleteModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
-                        <h3 style={{ marginTop: 0, color: 'var(--text-main)' }}>Sei sicuro?</h3>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '25px' }}>
-                            Vuoi davvero cancellare questo viaggio? <br />
-                            Tutti i giorni e le attività verranno persi per sempre.
-                        </p>
-                        <div className="modal-footer" style={{ justifyContent: 'center' }}>
-                            <button className="back-btn" onClick={() => setShowDeleteModal(false)}>Annulla</button>
-                            <button
-                                className="btn-primary"
-                                style={{ width: 'auto', backgroundColor: 'var(--red-button)' }}
-                                onClick={confirmDelete}
-                            >
-                                Sì, elimina
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={confirmDelete}
+                title="Elimina Viaggio"
+                message="Sei sicuro? Tutti i giorni e le attività verranno persi per sempre."
+                confirmText="Sì, elimina"
+                isDangerous={true}
+            />
         </div>
     )
 }
