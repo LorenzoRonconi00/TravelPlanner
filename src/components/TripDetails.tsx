@@ -260,13 +260,15 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
             doc.rect(0, 0, pageWidth, headerHeight, 'F');
             doc.setGState(new (doc.GState as any)({ opacity: 1 }));
 
-            const cardWidth = 160;
+            const cardWidth = 120;
             const cardHeight = 40;
             const cardX = (pageWidth - cardWidth) / 2;
             const cardY = (headerHeight - cardHeight) / 2;
 
+            doc.setGState(new (doc.GState as any)({ opacity: 0.7 }));
             doc.setFillColor(255, 255, 255);
             doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 3, 3, 'F');
+            doc.setGState(new (doc.GState as any)({ opacity: 1 }));
 
             doc.setTextColor(67, 20, 7);
             doc.setFont('times', 'bold');
