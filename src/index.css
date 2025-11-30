@@ -737,25 +737,45 @@ h4,
 
 .ai-fab {
   position: absolute;
-  bottom: 20px;
+  bottom: 50px;
   left: 50%;
   transform: translateX(-50%);
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
+  width: auto;
+  padding: 12px 24px;
+  border-radius: 50px;
   background-color: var(--primary);
   color: white;
   border: none;
-  box-shadow: 0 4px 15px rgba(194, 65, 12, 0.4);
-  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-family: 'Nunito', sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(194, 65, 12, 0.4);
+  cursor: pointer;
   z-index: 40;
+  transition: all 0.3s ease;
+}
+
+.ai-fab svg {
+  transition: all 0.3s ease;
 }
 
 .ai-fab:hover {
-  transform: translateX(-50%) scale(1.1);
-  background-color: var(--primary-hover);
+  box-shadow: 0 0 20px rgba(194, 65, 12, 0.6), 0 0 40px rgba(253, 224, 71, 0.4);
+  animation: subtleBounce 0.3s infinite alternate ease-in-out;
+}
+
+.ai-fab:hover svg {
+  fill: #FDE047;
+  color: #FDE047;
+  filter: drop-shadow(0 0 8px #FDE047);
+  transform: scale(1.1);
+}
+
+@keyframes subtleBounce {
+  from { transform: translateX(-50%) translateY(0); }
+  to { transform: translateX(-50%) translateY(-6px); }
 }

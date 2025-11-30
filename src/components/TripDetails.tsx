@@ -508,7 +508,8 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                         }}
                         title="Chiedi all'AI"
                     >
-                        <Lightbulb size={24} />
+                        <Lightbulb size={20} />
+                        <span>Suggeriscimi Attività</span>
                     </button>
 
                     {/* DRAWER AI */}
