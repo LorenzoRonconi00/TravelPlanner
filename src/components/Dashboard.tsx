@@ -120,7 +120,6 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
             return
         }
 
-        // Create
         let img = await fetchUnsplashImage(data.destination)
         if (!img) img = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop'
 
@@ -322,7 +321,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
                         <div style={{ gridColumn: '1 / -1', padding: 20, color: 'gray' }}>Caricamento...</div>
                     ) : (
                         <>
-                            {/* 3. LISTA COLLEZIONI */}
+                            {/* 3. COLLECTION */}
                             {collections.map((col) => (
                                 <CollectionCard
                                     key={col.id}
@@ -332,7 +331,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
                                 />
                             ))}
 
-                            {/* 4. LISTA VIAGGI SINGOLI */}
+                            {/* SINGLE TRIP */}
                             {trips.map((trip) => (
                                 <TripCard
                                     key={trip.id}

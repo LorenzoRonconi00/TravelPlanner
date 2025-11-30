@@ -49,30 +49,27 @@ function App(): JSX.Element {
   }
 
   if (user) {
-    // Livello 3: Dettaglio Viaggio (Priorità massima)
     if (selectedTripId) {
       return <TripDetails tripId={selectedTripId} onBack={() => setSelectedTripId(null)} />
     }
 
-    // Livello 2: Dettaglio Collezione
     if (selectedCollectionId) {
       return (
         <CollectionDetails
           userId={user.id}
           collectionId={selectedCollectionId}
-          onBack={() => setSelectedCollectionId(null)} // Torna alla dashboard
-          onSelectTrip={(tripId) => setSelectedTripId(tripId)} // Entra nel viaggio
+          onBack={() => setSelectedCollectionId(null)}
+          onSelectTrip={(tripId) => setSelectedTripId(tripId)}
         />
       )
     }
 
-    // Livello 1: Dashboard Principale
     return (
       <Dashboard
         user={user}
         onLogout={handleLogout}
-        onSelectTrip={(tripId) => setSelectedTripId(tripId)} // Entra in viaggio singolo
-        onSelectCollection={(colId) => setSelectedCollectionId(colId)} // <--- NUOVA PROP: Entra in cartella
+        onSelectTrip={(tripId) => setSelectedTripId(tripId)}
+        onSelectCollection={(colId) => setSelectedCollectionId(colId)}
       />
     )
   }

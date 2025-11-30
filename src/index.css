@@ -354,7 +354,7 @@ h4,
 }
 
 .trip-card:hover .trip-action-btn,
-.collection-card:hover .trip-action-btn {
+.trip-action-btn {
   opacity: 1;
   transform: scale(1);
 }
@@ -1068,75 +1068,73 @@ h4,
 }
 
 /* COLLECTION CARD */
-.collection-card {
+.collection-wrapper {
   position: relative;
-  background-color: var(--card-bg);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--border-color);
   height: 240px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
   cursor: pointer;
-  transition: all 0.3s ease;
-  /* Transizione più fluida su tutto */
-  z-index: 5;
-  /* Aggiungiamo una leggera ombra alla card principale */
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 1;
 }
 
-/* Il foglio subito sotto */
-.collection-card::before {
-  content: "";
+.collection-layer {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background-color: white;
-  border: 1px solid #e7e5e4;
   border-radius: var(--border-radius);
-  z-index: -1;
-  transform: rotate(3deg);
-  /* Rotazione iniziale */
+  border: 1px solid var(--border-color);
+  background-size: cover;
+  background-position: center;
   transition: all 0.3s ease;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
-/* Il foglio più sotto */
-.collection-card::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: white;
-  border: 1px solid #e7e5e4;
-  border-radius: var(--border-radius);
-  z-index: -2;
+.layer-bottom {
+  z-index: 1;
   transform: rotate(-3deg);
-  /* Rotazione iniziale */
-  transition: all 0.3s ease;
 }
 
-.collection-card:hover {
-  transform: translateY(-5px) rotate(2deg);
-  /* Si alza e ruota leggermente a destra */
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  /* Ombra più marcata */
+.layer-middle {
+  z-index: 2;
+  transform: rotate(3deg);
 }
 
-/* 2. Aggiusta i fogli sotto per accentuare l'effetto ventaglio */
-.collection-card:hover::before {
-  /* Ruota un po' di più per aprirsi a ventaglio */
-  transform: rotate(5deg) translateX(2px);
+.layer-top {
+  z-index: 3;
+  transform: rotate(0deg);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-.collection-card:hover::after {
-  /* Ruota in senso opposto per aprirsi a ventaglio */
-  transform: rotate(-5deg) translateX(-2px);
+.collection-wrapper:hover .layer-top {
+  transform: translateY(-5px);
+}
+
+.collection-wrapper:hover .layer-middle {
+  transform: translateX(10px) rotate(6deg);
+}
+
+.collection-wrapper:hover .layer-bottom {
+  transform: translateX(-10px) rotate(-6deg);
+}
+
+.collection-content {
+  padding: 20px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
+  border-radius: 0 0 var(--border-radius) var(--border-radius);
+  color: white;
+}
+
+.collection-content h3 {
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.collection-content div {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .collection-title {

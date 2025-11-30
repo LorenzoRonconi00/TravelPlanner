@@ -4,7 +4,6 @@ import { ArrowLeft, PlusCircle } from 'lucide-react'
 import { TripCard } from './TripCard'
 import { TripFormModal } from './TripFormModal'
 import { ConfirmationModal } from './ui/ConfirmationModal'
-import { ErrorMessage } from './ui/ErrorMessage'
 import { Trip } from '../types/types'
 
 interface CollectionDetailsProps {
@@ -18,15 +17,13 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
   const [collectionTitle, setCollectionTitle] = useState('')
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Stati Modali (simili alla Dashboard)
+
   const [showModal, setShowModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [tripToDelete, setTripToDelete] = useState<string | null>(null)
   const [editingTripId, setEditingTripId] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
-  
-  // Form Data
+
   const [formData, setFormData] = useState({
     title: '', destination: '', startDate: '', endDate: '', accommodation: '', airport: ''
   })
@@ -37,23 +34,20 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
 
   const fetchCollectionData = async () => {
     setLoading(true)
-    
-    // 1. Prendi info della collezione (Titolo)
+
     const { data: colData } = await supabase.from('collections').select('title').eq('id', collectionId).single()
     if (colData) setCollectionTitle(colData.title)
 
-    // 2. Prendi i viaggi di QUESTA collezione
     const { data: tripsData, error } = await supabase
       .from('trips')
       .select('*')
-      .eq('collection_id', collectionId) // FILTRO IMPORTANTE
-      .order('start_date', { ascending: true }) // Ordine cronologico delle tappe
+      .eq('collection_id', collectionId)
+      .order('start_date', { ascending: true })
 
     if (!error && tripsData) setTrips(tripsData)
     setLoading(false)
   }
 
-  // --- FETCH IMMAGINE (Copiata da Dashboard per semplicità) ---
   const fetchUnsplashImage = async (query: string) => {
      const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY
      if (!accessKey) return null
@@ -64,14 +58,12 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
      } catch (e) { return null }
   }
 
-  // --- SALVATAGGIO (Crea/Modifica) ---
   const handleSaveTrip = async (data: typeof formData) => {
     setErrorMsg('')
     if (!data.title || !data.startDate || !data.endDate || !data.destination) return setErrorMsg('Compila i campi obbligatori (*).')
     
     const accomInfo = data.accommodation ? `Alloggio: ${data.accommodation}` : null
 
-    // UPDATE
     if (editingTripId) {
         const original = trips.find(t => t.id === editingTripId)
         let newImg = original?.image_url
@@ -86,13 +78,12 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
         return
     }
 
-    // CREATE (Qui sta la magia: aggiungiamo collection_id)
     let img = await fetchUnsplashImage(data.destination)
     if (!img) img = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop'
     
     const { data: newTrip, error } = await supabase.from('trips').insert([{
         user_id: userId, 
-        collection_id: collectionId, // <--- ASSEGNAZIONE AUTOMATICA ALLA CARTELLA
+        collection_id: collectionId,
         title: data.title, 
         destination: data.destination, 
         start_date: data.startDate, 
@@ -104,7 +95,6 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
     if (error) return setErrorMsg(error.message)
     
     if (newTrip) {
-        // Genera giorni...
         const start = new Date(data.startDate); const end = new Date(data.endDate);
         const daysArr = []; let count = 1;
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -115,7 +105,6 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
     }
   }
 
-  // --- HANDLERS ---
   const handleEditClick = (e: React.MouseEvent, trip: Trip) => {
     e.stopPropagation(); setEditingTripId(trip.id);
     setFormData({
@@ -143,7 +132,6 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
 
   return (
     <div className="dashboard-layout">
-      {/* HEADER CARTELLA */}
       <header className="dashboard-header">
         <div style={{ display:'flex', alignItems:'center', gap:'15px' }}>
              <button className="back-btn" onClick={onBack} style={{ border:'none', fontSize:'1.5rem', padding:'10px', color:'var(--primary)' }}>
@@ -169,10 +157,8 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
         </div>
 
         <div className="trips-grid">
-          {/* Lista Tappe */}
           {loading ? <div>Caricamento tappe...</div> : trips.map((trip, index) => (
             <div key={trip.id} style={{position:'relative'}}>
-                 {/* Badge numero tappa */}
                  <div style={{
                      position:'absolute', top:-10, left:-10, zIndex:30, 
                      background:'var(--primary)', color:'white', 
