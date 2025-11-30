@@ -353,7 +353,8 @@ h4,
   border-color: var(--primary-light);
 }
 
-.trip-card:hover .trip-action-btn {
+.trip-card:hover .trip-action-btn,
+.collection-card:hover .trip-action-btn {
   opacity: 1;
   transform: scale(1);
 }
@@ -1064,4 +1065,92 @@ h4,
   background-color: #FEE2E2;
   color: #EF4444;
   border: 1px solid #fecaca;
+}
+
+/* COLLECTION CARD */
+.collection-card {
+  position: relative;
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  height: 240px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  /* Transizione più fluida su tutto */
+  z-index: 5;
+  /* Aggiungiamo una leggera ombra alla card principale */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Il foglio subito sotto */
+.collection-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: white;
+  border: 1px solid #e7e5e4;
+  border-radius: var(--border-radius);
+  z-index: -1;
+  transform: rotate(3deg);
+  /* Rotazione iniziale */
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Il foglio più sotto */
+.collection-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: white;
+  border: 1px solid #e7e5e4;
+  border-radius: var(--border-radius);
+  z-index: -2;
+  transform: rotate(-3deg);
+  /* Rotazione iniziale */
+  transition: all 0.3s ease;
+}
+
+.collection-card:hover {
+  transform: translateY(-5px) rotate(2deg);
+  /* Si alza e ruota leggermente a destra */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  /* Ombra più marcata */
+}
+
+/* 2. Aggiusta i fogli sotto per accentuare l'effetto ventaglio */
+.collection-card:hover::before {
+  /* Ruota un po' di più per aprirsi a ventaglio */
+  transform: rotate(5deg) translateX(2px);
+}
+
+.collection-card:hover::after {
+  /* Ruota in senso opposto per aprirsi a ventaglio */
+  transform: rotate(-5deg) translateX(-2px);
+}
+
+.collection-title {
+  font-family: 'Merriweather', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 5px;
+}
+
+.collection-meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }

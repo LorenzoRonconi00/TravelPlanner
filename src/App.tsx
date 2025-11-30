@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { supabase } from './SupabaseClient'
 import Dashboard from './components/Dashboard'
 import TripDetails from './components/TripDetails'
+import CollectionDetails from './components/CollectionDetails'
 import AuthScreen from './components/AuthScreen'
 import './index.css'
 
 function App(): JSX.Element {
   const [user, setUser] = useState<any>(null)
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null))
@@ -47,10 +49,32 @@ function App(): JSX.Element {
   }
 
   if (user) {
+    // Livello 3: Dettaglio Viaggio (Priorità massima)
     if (selectedTripId) {
       return <TripDetails tripId={selectedTripId} onBack={() => setSelectedTripId(null)} />
     }
-    return <Dashboard user={user} onLogout={handleLogout} onSelectTrip={(id) => setSelectedTripId(id)} />
+
+    // Livello 2: Dettaglio Collezione
+    if (selectedCollectionId) {
+      return (
+        <CollectionDetails
+          userId={user.id}
+          collectionId={selectedCollectionId}
+          onBack={() => setSelectedCollectionId(null)} // Torna alla dashboard
+          onSelectTrip={(tripId) => setSelectedTripId(tripId)} // Entra nel viaggio
+        />
+      )
+    }
+
+    // Livello 1: Dashboard Principale
+    return (
+      <Dashboard
+        user={user}
+        onLogout={handleLogout}
+        onSelectTrip={(tripId) => setSelectedTripId(tripId)} // Entra in viaggio singolo
+        onSelectCollection={(colId) => setSelectedCollectionId(colId)} // <--- NUOVA PROP: Entra in cartella
+      />
+    )
   }
 
   return <AuthScreen />

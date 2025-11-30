@@ -4,22 +4,29 @@ import { TripCard } from './TripCard'
 import { TripFormModal } from './TripFormModal'
 import { ConfirmationModal } from './ui/ConfirmationModal'
 import { Trip } from '../types/types'
-import { Users } from 'lucide-react'
+import { Users, PlusCircle, FolderPlus } from 'lucide-react'
 import { FriendsModal } from './FriendsModal'
+import { TripCollection } from '../types/types'
+import { CollectionCard } from './CollectionCard'
+import { CollectionFormModal } from './CollectionFormModal'
 
 interface DashboardProps {
     user: any
     onLogout: () => void
     onSelectTrip: (tripId: string) => void
+    onSelectCollection: (collectionId: string) => void
 }
 
-export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardProps): JSX.Element {
+export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollection }: DashboardProps): JSX.Element {
     const [trips, setTrips] = useState<Trip[]>([])
+    const [collections, setCollections] = useState<TripCollection[]>([])
     const [loading, setLoading] = useState(true)
 
     const [showModal, setShowModal] = useState(false)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [showCollectionModal, setShowCollectionModal] = useState(false)
     const [tripToDelete, setTripToDelete] = useState<string | null>(null)
+    const [collectionToDelete, setCollectionToDelete] = useState<string | null>(null)
 
     const [editingTripId, setEditingTripId] = useState<string | null>(null)
     const [errorMsg, setErrorMsg] = useState('')
@@ -45,8 +52,23 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
 
     const fetchTrips = async () => {
         setLoading(true)
-        const { data, error } = await supabase.from('trips').select('*').order('start_date', { ascending: true })
-        if (!error && data) setTrips(data)
+
+        const tripsQuery = supabase
+            .from('trips')
+            .select('*')
+            .is('collection_id', null)
+            .order('start_date', { ascending: true })
+
+        const collectionsQuery = supabase
+            .from('collections')
+            .select('*, trips(*)')
+            .order('created_at', { ascending: false })
+
+        const [tripsRes, collRes] = await Promise.all([tripsQuery, collectionsQuery])
+
+        if (tripsRes.data) setTrips(tripsRes.data)
+        if (collRes.data) setCollections(collRes.data)
+
         setLoading(false)
     }
 
@@ -58,10 +80,18 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
     }
 
     const confirmDelete = async () => {
-        if (!tripToDelete) return
-        const { error } = await supabase.from('trips').delete().eq('id', tripToDelete)
-        if (error) setErrorMsg('Errore cancellazione: ' + error.message)
-        else { fetchTrips(); setShowDeleteModal(false); setTripToDelete(null); }
+        // Delete trip
+        if (tripToDelete) {
+            const { error } = await supabase.from('trips').delete().eq('id', tripToDelete)
+            if (error) alert('Errore: ' + error.message)
+            else { fetchTrips(); setShowDeleteModal(false); setTripToDelete(null); }
+        }
+        // Delete collection
+        else if (collectionToDelete) {
+            const { error } = await supabase.from('collections').delete().eq('id', collectionToDelete)
+            if (error) alert('Errore: ' + error.message)
+            else { fetchTrips(); setShowDeleteModal(false); setCollectionToDelete(null); }
+        }
     }
 
     const handleSaveTrip = async (data: typeof formData) => {
@@ -173,6 +203,28 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
         setShowModal(true)
     }
 
+    const handleCreateCollection = async (data: { title: string, description: string }) => {
+        setErrorMsg('')
+        const { error } = await supabase.from('collections').insert([{
+            user_id: user.id,
+            title: data.title,
+            description: data.description,
+        }])
+
+        if (error) {
+            setErrorMsg(error.message)
+        } else {
+            setShowCollectionModal(false)
+            fetchTrips()
+        }
+    }
+
+    const handleDeleteCollection = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation()
+        setCollectionToDelete(id)
+        setShowDeleteModal(true)
+    }
+
     //#endregion
 
     return (
@@ -238,33 +290,59 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
 
             {/* MAIN */}
             <main className="dashboard-content">
-                <h2 style={{ marginBottom: '30px', color: 'var(--text-main)' }}>I tuoi Itinerari</h2>
-                <div className="trips-grid">
-                    <div className="trip-card new-trip" onClick={openNewTripModal}>
-                        <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>+</div>
-                        <div>Nuova Avventura</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                    <h2 style={{ margin: 0, color: 'var(--text-main)' }}>I tuoi Itinerari</h2>
+
+                    <div style={{ display: 'flex', gap: '15px' }}>
+                        {/* ADD TRIP */}
+                        <button
+                            className="btn-primary"
+                            style={{ width: 'auto', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.9rem' }}
+                            onClick={openNewTripModal}
+                        >
+                            <PlusCircle size={18} /> Nuovo Viaggio
+                        </button>
+
+                        {/* ADD FOLDER */}
+                        <button
+                            className="btn-primary"
+                            style={{
+                                width: 'auto', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.9rem',
+                                backgroundColor: 'white', color: 'var(--primary)', border: '1px solid var(--primary)'
+                            }}
+                            onClick={() => setShowCollectionModal(true)}
+                        >
+                            <FolderPlus size={18} /> Nuova Raccolta
+                        </button>
                     </div>
+                </div>
+                <div className="trips-grid">
 
                     {loading ? (
-                        <div style={{
-                            height: '240px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            color: 'var(--text-muted)',
-                            fontStyle: 'italic'
-                        }}>
-                            Caricamento viaggi...
-                        </div>
+                        <div style={{ gridColumn: '1 / -1', padding: 20, color: 'gray' }}>Caricamento...</div>
                     ) : (
-                        trips.map((trip) => (
-                            <TripCard
-                                key={trip.id}
-                                trip={trip}
-                                onSelect={onSelectTrip}
-                                onEdit={handleEditClick}
-                                onDelete={handleDeleteTrip}
-                            />
-                        ))
+                        <>
+                            {/* 3. LISTA COLLEZIONI */}
+                            {collections.map((col) => (
+                                <CollectionCard
+                                    key={col.id}
+                                    collection={col}
+                                    onClick={(id) => onSelectCollection(id)}
+                                    onDelete={handleDeleteCollection}
+                                />
+                            ))}
+
+                            {/* 4. LISTA VIAGGI SINGOLI */}
+                            {trips.map((trip) => (
+                                <TripCard
+                                    key={trip.id}
+                                    trip={trip}
+                                    onSelect={onSelectTrip}
+                                    onEdit={handleEditClick}
+                                    onDelete={handleDeleteTrip}
+                                />
+                            ))}
+                        </>
                     )}
                 </div>
             </main>
@@ -282,10 +360,14 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
             {/* DELETE CONFIRMATION MODAL */}
             <ConfirmationModal
                 isOpen={showDeleteModal}
-                onClose={() => setShowDeleteModal(false)}
+                onClose={() => { setShowDeleteModal(false); setTripToDelete(null); setCollectionToDelete(null); }}
                 onConfirm={confirmDelete}
-                title="Elimina Viaggio"
-                message="Sei sicuro? Tutti i giorni e le attività verranno persi per sempre."
+                title={collectionToDelete ? "Elimina Raccolta" : "Elimina Viaggio"}
+                message={
+                    collectionToDelete
+                        ? "Se elimini la raccolta, i viaggi al suo interno NON verranno cancellati, ma torneranno nella lista principale."
+                        : "Sei sicuro? Tutti i giorni e le attività verranno persi per sempre."
+                }
                 confirmText="Sì, elimina"
                 isDangerous={true}
             />
@@ -296,6 +378,14 @@ export default function Dashboard({ user, onLogout, onSelectTrip }: DashboardPro
                 onClose={() => setShowFriendsModal(false)}
                 pendingCount={pendingRequestsCount}
                 onUpdate={fetchPendingCount}
+            />
+
+            {/* COLLECTION MODAL */}
+            <CollectionFormModal
+                isOpen={showCollectionModal}
+                onClose={() => setShowCollectionModal(false)}
+                onSubmit={handleCreateCollection}
+                errorMsg={errorMsg}
             />
         </div>
     )
