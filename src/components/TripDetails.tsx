@@ -115,7 +115,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     }
 
     // Function to call Gemini API
-    const askGemini = async (destination: string, accommodation: string, exclusions: string[], mood: string) => {
+    const askGemini = async (destination: string, accommodation: string, startDate: string, endDate: string, exclusions: string[], mood: string) => {
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
         if (!apiKey) throw new Error("Manca la API Key di Gemini");
 
@@ -123,13 +123,20 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
             ? `IMPORTANTE: NON suggerire assolutamente le seguenti attività: ${exclusions.join(', ')}.`
             : '';
 
+        const dateRange = `${new Date(startDate).toLocaleDateString('it-IT')} - ${new Date(endDate).toLocaleDateString('it-IT')}`;
+
         const prompt = `
           Agisci come una guida turistica esperta.
           
           OBIETTIVO: Suggerisci 5 attività che si trovano ESATTAMENTE a (o molto vicino a): "${accommodation}".
           
-          Contesto del viaggio: L'itinerario generale è a ${destination}. 
-          NOTA BENE: Se "${accommodation}" è una città diversa da ${destination}, IGNORA la destinazione del viaggio e cerca a "${accommodation}".
+          Contesto del viaggio: 
+          - Destinazione generale: ${destination}
+          - Periodo: ${dateRange}
+
+          NOTA BENE: 
+          1. Se "${accommodation}" è una città diversa da ${destination}, IGNORA la destinazione del viaggio e cerca a "${accommodation}".
+          2. Considera attentamente il PERIODO dell'anno (meteo, stagione, eventi specifici di quei giorni) per i suggerimenti.
           
           Stile richiesto: Attività **${mood}**.
           ${exclusionText}
@@ -190,7 +197,14 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
             const randomMood = TRIP_MOODS[Math.floor(Math.random() * TRIP_MOODS.length)];
 
-            const newSuggestions = await askGemini(tripInfo.destination, targetLocation, exclusions, randomMood);
+            const newSuggestions = await askGemini(
+                tripInfo.destination,
+                targetLocation,
+                tripInfo.start_date,
+                tripInfo.end_date,
+                exclusions,
+                randomMood
+            );
 
             setAiSuggestions(newSuggestions);
 
