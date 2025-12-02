@@ -86,6 +86,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const [activityToDelete, setActivityToDelete] = useState<string | null>(null)
     const [errorMsg, setErrorMsg] = useState('')
     const [aiError, setAiError] = useState('')
+    const [aiFilter, setAiFilter] = useState<string | null>(null)
     const [pdfError, setPdfError] = useState('')
     const [editingActivityId, setEditingActivityId] = useState<string | null>(null)
     const [activityForm, setActivityForm] = useState({ type: '', title: '', startTime: '', duration: 60, notes: '' })
@@ -115,7 +116,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     }
 
     // Function to call Gemini API
-    const askGemini = async (destination: string, accommodation: string, startDate: string, endDate: string, exclusions: string[], mood: string) => {
+    const askGemini = async (destination: string, accommodation: string, startDate: string, endDate: string, exclusions: string[], mood: string, filter: string | null) => {
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
         if (!apiKey) throw new Error("Manca la API Key di Gemini");
 
@@ -124,6 +125,17 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
             : '';
 
         const dateRange = `${new Date(startDate).toLocaleDateString('it-IT')} - ${new Date(endDate).toLocaleDateString('it-IT')}`;
+
+        let styleInstruction = `Stile richiesto: Attività **${mood}**.`;
+
+        if (filter) {
+            const labels: Record<string, string> = {
+                culture: "Culturali, Storiche o Artistiche (Musei, Monumenti)",
+                food: "Gastronomiche (Ristoranti tipici, Street food, Caffè storici)",
+                leisure: "Svago, Divertimento o Relax (Parchi, Shopping, Spettacoli)"
+            };
+            styleInstruction = `FOCUS OBBLIGATORIO: Suggerisci ESCLUSIVAMENTE attività di categoria **${labels[filter]}**.`;
+        }
 
         const prompt = `
           Agisci come una guida turistica esperta.
@@ -138,7 +150,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
           1. Se "${accommodation}" è una città diversa da ${destination}, IGNORA la destinazione del viaggio e cerca a "${accommodation}".
           2. Considera attentamente il PERIODO dell'anno (meteo, stagione, eventi specifici di quei giorni) per i suggerimenti.
           
-          Stile richiesto: Attività **${mood}**.
+          ${styleInstruction}
           ${exclusionText}
           
           Rispondi SOLO con un array JSON valido.
@@ -180,7 +192,6 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const handleAskAssistant = async () => {
         setAiError('');
         setAiLoading(true);
-
         const targetLocation = hotelInput.trim();
 
         if (!targetLocation) {
@@ -192,9 +203,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         try {
             const existingTitles = activities.map(a => a.title);
             const suggestedTitles = aiSuggestions.map(s => s.title);
-
             const exclusions = [...existingTitles, ...suggestedTitles];
-
             const randomMood = TRIP_MOODS[Math.floor(Math.random() * TRIP_MOODS.length)];
 
             const newSuggestions = await askGemini(
@@ -203,7 +212,8 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                 tripInfo.start_date,
                 tripInfo.end_date,
                 exclusions,
-                randomMood
+                randomMood,
+                aiFilter
             );
 
             setAiSuggestions(newSuggestions);
@@ -666,6 +676,32 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                             <span>Usa: {tripInfo.accommodation_info.replace('Alloggio: ', '').split('|')[0].trim()}</span>
                                         </button>
                                     )}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+                                    {[
+                                        { id: 'culture', label: 'Cultura', icon: <Landmark size={14} /> },
+                                        { id: 'food', label: 'Cibo', icon: <Coffee size={14} /> },
+                                        { id: 'leisure', label: 'Svago', icon: <Ticket size={14} /> }
+                                    ].map((type) => (
+                                        <button
+                                            key={type.id}
+                                            onClick={() => setAiFilter(prev => prev === type.id ? null : type.id)}
+                                            style={{
+                                                flex: 1,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                                                padding: '8px 5px',
+                                                borderRadius: '8px',
+                                                border: aiFilter === type.id ? '1px solid var(--primary)' : '1px solid #E7E5E4',
+                                                backgroundColor: aiFilter === type.id ? '#FFF7ED' : 'white',
+                                                color: aiFilter === type.id ? 'var(--primary)' : 'var(--text-muted)',
+                                                fontSize: '0.8rem', fontWeight: 600,
+                                                cursor: 'pointer', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {type.icon} {type.label}
+                                        </button>
+                                    ))}
                                 </div>
 
                                 <ErrorMessage message={aiError} />
