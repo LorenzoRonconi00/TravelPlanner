@@ -155,26 +155,91 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
     const handleSaveTrip = async (data: typeof formData) => {
         setErrorMsg('')
 
-        if (!data.title || !data.startDate || !data.endDate || !data.destination) return setErrorMsg('Compila i campi obbligatori (*).')
+        if (!data.title || !data.startDate || !data.endDate || !data.destination) {
+            return setErrorMsg('Compila i campi obbligatori (*).')
+        }
 
-        const start = new Date(data.startDate); const end = new Date(data.endDate);
-        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+        const startTimestamp = new Date(data.startDate).setHours(0, 0, 0, 0)
+        const endTimestamp = new Date(data.endDate).setHours(0, 0, 0, 0)
+        const diffDays = Math.ceil((endTimestamp - startTimestamp) / (1000 * 60 * 60 * 24))
 
-        if (diffDays < 0) return setErrorMsg('Data fine errata.'); if (diffDays > 30) return setErrorMsg('Max 30 giorni.')
+        if (diffDays < 0) return setErrorMsg('Data fine errata.')
+        if (diffDays > 30) return setErrorMsg('Max 30 giorni.')
+
+        const conflict = trips.find(trip => {
+            if (trip.id === editingTripId) return false
+            const existingStart = new Date(trip.start_date).setHours(0, 0, 0, 0)
+            const existingEnd = new Date(trip.end_date).setHours(0, 0, 0, 0)
+            return (startTimestamp < existingEnd && endTimestamp > existingStart)
+        })
+        if (conflict) return setErrorMsg(`Sovrapposizione con "${conflict.title}".`)
 
         const accomInfo = data.accommodation ? `Alloggio: ${data.accommodation}` : null
 
         if (editingTripId) {
             const original = trips.find(t => t.id === editingTripId)
             let newImg = original?.image_url
+
             if (original && original.destination.toLowerCase() !== data.destination.toLowerCase()) {
-                newImg = await fetchUnsplashImage(data.destination) || undefined
+                const fetchedImg = await fetchUnsplashImage(data.destination)
+                if (fetchedImg) newImg = fetchedImg
             }
+
             const { error } = await supabase.from('trips').update({
-                title: data.title, destination: data.destination, start_date: data.startDate, end_date: data.endDate, accommodation_info: accomInfo, image_url: newImg
+                title: data.title,
+                destination: data.destination,
+                start_date: data.startDate,
+                end_date: data.endDate,
+                accommodation_info: accomInfo,
+                image_url: newImg
             }).eq('id', editingTripId)
 
-            if (error) setErrorMsg(error.message); else { setShowModal(false); fetchTrips(); }
+            if (error) return setErrorMsg(error.message)
+
+            await supabase.from('days')
+                .delete()
+                .eq('trip_id', editingTripId)
+                .or(`date.lt.${data.startDate},date.gt.${data.endDate}`)
+
+            const { data: existingDays } = await supabase
+                .from('days')
+                .select('id, date')
+                .eq('trip_id', editingTripId)
+
+            const existingMap = new Map(existingDays?.map(d => [d.date, d.id]));
+
+            const updates: any[] = [];
+            const inserts: any[] = [];
+
+            let dayCounter = 1;
+            const loopStart = new Date(data.startDate);
+            const loopEnd = new Date(data.endDate);
+
+            for (let d = new Date(loopStart); d <= loopEnd; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+
+                if (existingMap.has(dateStr)) {
+                    updates.push({
+                        id: existingMap.get(dateStr),
+                        day_number: dayCounter,
+                        date: dateStr,
+                        trip_id: editingTripId
+                    });
+                } else {
+                    inserts.push({
+                        trip_id: editingTripId,
+                        date: dateStr,
+                        day_number: dayCounter
+                    });
+                }
+                dayCounter++;
+            }
+
+            if (inserts.length > 0) await supabase.from('days').insert(inserts);
+            if (updates.length > 0) await supabase.from('days').upsert(updates);
+
+            setShowModal(false);
+            fetchTrips();
             return
         }
 
@@ -189,7 +254,8 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
 
         if (newTrip) {
             const daysArr = []; let count = 1;
-            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const s = new Date(data.startDate); const e = new Date(data.endDate);
+            for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
                 daysArr.push({ trip_id: newTrip.id, date: new Date(d).toISOString().split('T')[0], day_number: count++ })
             }
             await supabase.from('days').insert(daysArr)
