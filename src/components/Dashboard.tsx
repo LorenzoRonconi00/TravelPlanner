@@ -9,7 +9,7 @@ import { FriendsModal } from './FriendsModal'
 import { TripCollection } from '../types/types'
 import { CollectionCard } from './CollectionCard'
 import { CollectionFormModal } from './CollectionFormModal'
-import { DndContext, useDraggable, useDroppable, DragEndEvent } from '@dnd-kit/core'
+import { DndContext, useDraggable, useDroppable, DragEndEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core'
 import { AlertModal } from './ui/AlertModal'
 
 interface DashboardProps {
@@ -90,6 +90,14 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
 
     const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
     const userName = user?.user_metadata?.full_name || user?.email;
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        })
+    )
 
     useEffect(() => { fetchTrips() }, [])
 
@@ -323,7 +331,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
     //#endregion
 
     return (
-        <DndContext onDragEnd={handleDragEnd}>
+        <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
             <div className="dashboard-layout">
                 <header className="dashboard-header">
 
