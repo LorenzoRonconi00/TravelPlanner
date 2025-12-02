@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
-import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Home, Share2 } from 'lucide-react'
+import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Home, Share2, LogOut } from 'lucide-react'
 import { DndContext, useDraggable, useDroppable, DragOverlay, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { ErrorMessage } from './ui/ErrorMessage'
 import { ConfirmationModal } from './ui/ConfirmationModal'
@@ -98,6 +98,8 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const [hotelInput, setHotelInput] = useState('')
 
     const [showShareModal, setShowShareModal] = useState(false)
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+    const [showLeaveModal, setShowLeaveModal] = useState(false)
 
     useEffect(() => { fetchTripAndDays() }, [tripId])
     useEffect(() => { if (selectedDay) fetchActivities(selectedDay.id) }, [selectedDay])
@@ -105,10 +107,16 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     // Fetch trip info and days
     const fetchTripAndDays = async () => {
         setLoading(true)
+
+        const { data: { user } } = await supabase.auth.getUser()
+        setCurrentUserId(user?.id || null)
+
         const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
         setTripInfo(tripData)
+
         const { data: daysData } = await supabase.from('days').select('*').eq('trip_id', tripId).order('day_number', { ascending: true })
         if (daysData && daysData.length > 0) { setDays(daysData); setSelectedDay(daysData[0]) }
+
         setLoading(false)
     }
 
@@ -533,6 +541,25 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
         setShowActivityModal(true);
     }
 
+    const handleLeaveTrip = async () => {
+        if (!currentUserId) return
+
+        try {
+            const { error } = await supabase
+                .from('trip_collaborators')
+                .delete()
+                .match({ trip_id: tripId, user_id: currentUserId })
+
+            if (error) throw error
+
+            onBack()
+
+        } catch (e: any) {
+            console.error(e)
+            alert("Errore durante l'uscita: " + e.message)
+        }
+    }
+
     // Get modal title based on type and editing state
     const getModalTitle = (type: string, isEditing: boolean) => {
         const action = isEditing ? 'Modifica' : 'Aggiungi';
@@ -743,23 +770,27 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
 
                                     {/* SHARE BUTTON */}
-                                    <button
-                                        onClick={() => setShowShareModal(true)}
-                                        className="btn-primary"
-                                        style={{
-                                            width: 'auto',
-                                            padding: '8px 16px',
-                                            display: 'flex',
-                                            gap: 6,
-                                            backgroundColor: 'white',
-                                            color: 'var(--primary)',
-                                            border: '1px solid var(--primary)'
-                                        }}
-                                        title="Invita amici a modificare"
-                                    >
-                                        <Share2 size={18} />
-                                        Condividi
-                                    </button>
+                                    {tripInfo?.user_id === currentUserId ? (
+                                        // OWNER
+                                        <button
+                                            onClick={() => setShowShareModal(true)}
+                                            className="btn-primary"
+                                            style={{ width: 'auto', padding: '8px 16px', display: 'flex', gap: 6, backgroundColor: 'white', color: 'var(--primary)', border: '1px solid var(--primary)' }}
+                                            title="Gestisci collaboratori"
+                                        >
+                                            <Share2 size={18} /> Condividi
+                                        </button>
+                                    ) : (
+                                        // COLLABORATOR
+                                        <button
+                                            onClick={() => setShowLeaveModal(true)}
+                                            className="btn-primary"
+                                            style={{ width: 'auto', padding: '8px 16px', display: 'flex', gap: 6, backgroundColor: '#FEE2E2', color: '#EF4444', border: '1px solid #EF4444' }}
+                                            title="Abbandona questo viaggio condiviso"
+                                        >
+                                            <LogOut size={18} /> Esci dalla collaborazione
+                                        </button>
+                                    )}
 
                                     {/* PDF BUTTON */}
                                     <button onClick={handleExportPdf} disabled={exporting} className="btn-primary" style={{ width: 'auto', padding: '8px 16px', display: 'flex', gap: 5 }}>
@@ -935,6 +966,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                     isOpen={showShareModal}
                     onClose={() => setShowShareModal(false)}
                     tripId={tripId}
+                    onLeave={onBack}
                 />
 
                 {/* DELETE MODAL */}
@@ -945,6 +977,16 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                     title="Elimina Attività"
                     message="Vuoi rimuovere questa attività dal programma?"
                     confirmText="Elimina"
+                    isDangerous={true}
+                />
+
+                <ConfirmationModal
+                    isOpen={showLeaveModal}
+                    onClose={() => setShowLeaveModal(false)}
+                    onConfirm={handleLeaveTrip}
+                    title="Abbandona Viaggio"
+                    message="Sei sicuro di voler uscire da questo viaggio condiviso? Non potrai più vederlo né modificarlo."
+                    confirmText="Sì, esci"
                     isDangerous={true}
                 />
             </div>

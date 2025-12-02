@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
-import { X, Users, Inbox, Search, Check, Trash2, Send, Loader2 } from 'lucide-react'
+import { X, Users, Inbox, Search, Check, Trash2, Send, Loader2, Map } from 'lucide-react'
 import { ConfirmationModal } from './ui/ConfirmationModal'
 
 interface FriendsModalProps {
     isOpen: boolean
     onClose: () => void
-    pendingCount: number
+    counts: { friends: number; trips: number }
     onUpdate: () => void
 }
 
-type Tab = 'all' | 'pending' | 'add'
+type Tab = 'all' | 'pending' | 'add' | 'collaborations'
 
-export function FriendsModal({ isOpen, onClose, pendingCount, onUpdate }: FriendsModalProps) {
+export function FriendsModal({ isOpen, onClose, counts, onUpdate }: FriendsModalProps) {
 
     //#region STATE & EFFECTS
 
@@ -28,15 +28,18 @@ export function FriendsModal({ isOpen, onClose, pendingCount, onUpdate }: Friend
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [friendshipIdToDelete, setFriendshipIdToDelete] = useState<string | null>(null)
 
+    const [tripInvites, setTripInvites] = useState<any[]>([])
+
+    const getMyId = async () => (await supabase.auth.getUser()).data.user?.id
+
     useEffect(() => {
         if (isOpen) {
             if (activeTab === 'all') fetchFriends()
             if (activeTab === 'pending') fetchRequests()
+            if (activeTab === 'collaborations') fetchTripInvites()
             setMsg(null)
         }
     }, [isOpen, activeTab])
-
-    const getMyId = async () => (await supabase.auth.getUser()).data.user?.id
 
     //#endregion
 
@@ -70,6 +73,23 @@ export function FriendsModal({ isOpen, onClose, pendingCount, onUpdate }: Friend
             .eq('status', 'pending')
 
         if (!error && data) setRequests(data)
+        setLoading(false)
+    }
+
+    const fetchTripInvites = async () => {
+        setLoading(true)
+        const myId = await getMyId()
+
+        const { data, error } = await supabase
+            .from('trip_collaborators')
+            .select(`
+        id,
+        trip:trip_id ( id, title, destination, start_date, end_date, image_url )
+      `)
+            .eq('user_id', myId)
+            .eq('status', 'pending')
+
+        if (!error && data) setTripInvites(data)
         setLoading(false)
     }
 
@@ -114,6 +134,30 @@ export function FriendsModal({ isOpen, onClose, pendingCount, onUpdate }: Friend
         onUpdate()
     }
 
+    const handleTripInviteAction = async (collabId: string, action: 'accept' | 'reject') => {
+        try {
+            let error = null
+
+            if (action === 'accept') {
+                const res = await supabase.from('trip_collaborators').update({ status: 'accepted' }).eq('id', collabId)
+                error = res.error
+            } else {
+                const res = await supabase.from('trip_collaborators').delete().eq('id', collabId)
+                error = res.error
+            }
+
+            if (error) throw error
+
+            fetchTripInvites()
+            onUpdate()
+
+
+        } catch (err: any) {
+            console.error("Errore azione invito:", err)
+            alert("Impossibile completare l'azione: " + err.message)
+        }
+    }
+
     if (!isOpen) return null
 
     //#endregion
@@ -133,7 +177,16 @@ export function FriendsModal({ isOpen, onClose, pendingCount, onUpdate }: Friend
 
                         <div className={`friends-tab ${activeTab === 'pending' ? 'active' : ''}`} onClick={() => setActiveTab('pending')}>
                             In Attesa
-                            {pendingCount > 0 && <span className="friends-badge">{pendingCount}</span>}
+                            {counts.friends > 0 && (
+                                <span className="friends-badge">{counts.friends}</span>
+                            )}
+                        </div>
+
+                        <div className={`friends-tab ${activeTab === 'collaborations' ? 'active' : ''}`} onClick={() => setActiveTab('collaborations')}>
+                            Collaborazioni
+                            {counts.trips > 0 && (
+                                <span className="friends-badge">{counts.trips}</span>
+                            )}
                         </div>
 
                         <div className={`friends-tab ${activeTab === 'add' ? 'active' : ''}`} onClick={() => setActiveTab('add')}>
@@ -147,7 +200,7 @@ export function FriendsModal({ isOpen, onClose, pendingCount, onUpdate }: Friend
                 {/* BODY */}
                 <div className="friends-body">
 
-                    {/* TAB: TUTTI */}
+                    {/* ALL TAB */}
                     {activeTab === 'all' && (
                         <div>
                             <div className="input-group" style={{ marginBottom: '20px' }}>
@@ -184,7 +237,7 @@ export function FriendsModal({ isOpen, onClose, pendingCount, onUpdate }: Friend
                         </div>
                     )}
 
-                    {/* TAB: PENDING */}
+                    {/* PENDING TAB */}
                     {activeTab === 'pending' && (
                         <div>
                             <h3 style={{ marginTop: 0, fontSize: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Richieste in arrivo — {requests.length}</h3>
@@ -220,7 +273,58 @@ export function FriendsModal({ isOpen, onClose, pendingCount, onUpdate }: Friend
                         </div>
                     )}
 
-                    {/* TAB: AGGIUNGI */}
+                    {/* COLLABORATIONS TAB */}
+                    {activeTab === 'collaborations' && (
+                        <div>
+                            <h3 style={{ marginTop: 0, fontSize: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Inviti ai Viaggi
+                            </h3>
+
+                            {loading ? <p>Caricamento...</p> : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: 20 }}>
+                                    {tripInvites.map((invite) => (
+                                        <div key={invite.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px', border: '1px solid var(--border-color)', borderRadius: '12px', background: '#FFF7ED' }}>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                <div style={{ width: 50, height: 50, borderRadius: 8, overflow: 'hidden', backgroundColor: '#eee' }}>
+                                                    {invite.trip.image_url ? (
+                                                        <img src={invite.trip.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        <Map size={24} style={{ margin: '13px', color: '#ccc' }} />
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{invite.trip.title}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                                        {invite.trip.destination} • {new Date(invite.trip.start_date).toLocaleDateString()}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                <button onClick={() => handleTripInviteAction(invite.id, 'accept')} className="friend-action-btn accept">
+                                                    <Check size={18} /> Partecipa
+                                                </button>
+                                                <button onClick={() => handleTripInviteAction(invite.id, 'reject')} className="friend-action-btn delete">
+                                                    <X size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {tripInvites.length === 0 && (
+                                        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: 40 }}>
+                                            Nessun invito di viaggio in sospeso.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+
+                    {/* ADD TAB */}
                     {activeTab === 'add' && (
                         <div>
                             <h2 style={{ marginTop: 0, color: 'var(--text-main)' }}>Aggiungi un amico</h2>

@@ -194,6 +194,7 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
               </div>
               <TripCard
                 trip={trip}
+                isOwner={trip.user_id === userId}
                 onSelect={onSelectTrip}
                 onEdit={handleEditClick}
                 onDelete={handleDeleteTrip}

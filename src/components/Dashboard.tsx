@@ -86,7 +86,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
     })
 
     const [showFriendsModal, setShowFriendsModal] = useState(false)
-    const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
+    const [counts, setCounts] = useState({ friends: 0, trips: 0 })
 
     const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
     const userName = user?.user_metadata?.full_name || user?.email;
@@ -110,22 +110,46 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
 
     const fetchTrips = async () => {
         setLoading(true)
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
 
-        const tripsQuery = supabase
-            .from('trips')
-            .select('*')
-            .is('collection_id', null)
-            .order('start_date', { ascending: true })
+        const collectionsQuery = supabase.from('collections').select('*, trips(*)').eq('user_id', user.id).order('created_at', { ascending: false })
 
-        const collectionsQuery = supabase
-            .from('collections')
-            .select('*, trips(*)')
-            .order('created_at', { ascending: false })
+        const tripsQuery = supabase.from('trips').select(`*, trip_collaborators ( user_id, status )`).order('start_date', { ascending: true })
 
-        const [tripsRes, collRes] = await Promise.all([tripsQuery, collectionsQuery])
+        const [collRes, tripsRes] = await Promise.all([collectionsQuery, tripsQuery])
 
-        if (tripsRes.data) setTrips(tripsRes.data)
-        if (collRes.data) setCollections(collRes.data)
+        if (collRes.data) {
+            setCollections(collRes.data)
+        }
+
+        if (tripsRes.data) {
+            const visibleTrips = tripsRes.data.filter(trip => {
+                const isOwner = trip.user_id === user.id;
+                if (isOwner) return trip.collection_id === null;
+                const myCollab = trip.trip_collaborators?.find((c: any) => c.user_id === user.id);
+                return myCollab && myCollab.status === 'accepted';
+            });
+
+            const ownerIds = [...new Set(visibleTrips.filter(t => t.user_id !== user.id).map(t => t.user_id))];
+
+            let profilesMap: any = {};
+
+            if (ownerIds.length > 0) {
+                const { data: owners } = await supabase.from('profiles').select('id, full_name, email, avatar_url').in('id', ownerIds);
+                if (owners) {
+                    owners.forEach(o => profilesMap[o.id] = o);
+                }
+            }
+
+            // 3. Uniamo i dati
+            const enrichedTrips = visibleTrips.map(trip => ({
+                ...trip,
+                owner: profilesMap[trip.user_id]
+            }));
+
+            setTrips(enrichedTrips)
+        }
 
         setLoading(false)
     }
@@ -268,15 +292,27 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
     //#region FRIENDS
 
     const fetchPendingCount = async () => {
-        const { count, error } = await supabase
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        // Friendships
+        const { count: friendCount } = await supabase
             .from('friendships')
             .select('*', { count: 'exact', head: true })
             .eq('receiver_id', user.id)
             .eq('status', 'pending')
 
-        if (!error && count !== null) {
-            setPendingRequestsCount(count)
-        }
+        // Trip Collaborations
+        const { count: tripCount } = await supabase
+            .from('trip_collaborators')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('status', 'pending')
+
+        setCounts({
+            friends: friendCount || 0,
+            trips: tripCount || 0
+        })
     }
 
     //#endregion
@@ -396,6 +432,11 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
 
     //#endregion
 
+    const handleFullRefresh = () => {
+        fetchPendingCount()
+        fetchTrips()
+    }
+
     return (
         <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
             <div className="dashboard-layout">
@@ -432,7 +473,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
                             Amici
 
                             {/* NOTIFICATION BUTTON */}
-                            {pendingRequestsCount > 0 && (
+                            {(counts.friends + counts.trips) > 0 && (
                                 <span style={{
                                     position: 'absolute',
                                     top: -5,
@@ -448,7 +489,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
                                     justifyContent: 'center',
                                     boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
                                 }}>
-                                    {pendingRequestsCount}
+                                    {counts.friends + counts.trips}
                                 </span>
                             )}
                         </button>
@@ -508,6 +549,7 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
                                     <DraggableTrip key={trip.id} trip={trip}>
                                         <TripCard
                                             trip={trip}
+                                            isOwner={trip.user_id === user.id}
                                             onSelect={onSelectTrip}
                                             onEdit={handleEditClick}
                                             onDelete={handleDeleteTrip}
@@ -555,8 +597,8 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
                 <FriendsModal
                     isOpen={showFriendsModal}
                     onClose={() => setShowFriendsModal(false)}
-                    pendingCount={pendingRequestsCount}
-                    onUpdate={fetchPendingCount}
+                    counts={counts}
+                    onUpdate={handleFullRefresh}
                 />
 
                 {/* COLLECTION MODAL */}
