@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
-import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Home } from 'lucide-react'
+import { Calendar, ArrowLeft, Plane, Hotel, Coffee, Landmark, Ticket, Trash2, Clock, Download, X, Lightbulb, Sparkles, Home, Share2 } from 'lucide-react'
 import { DndContext, useDraggable, useDroppable, DragOverlay, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { ErrorMessage } from './ui/ErrorMessage'
 import { ConfirmationModal } from './ui/ConfirmationModal'
 import { DraggableAiCard } from './DraggableAiCard'
 import { TransportModal, TransportData } from './TransportModal'
+import { ShareTripModal } from './ShareTripModal'
 
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -95,6 +96,8 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const [aiLoading, setAiLoading] = useState(false)
     const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
     const [hotelInput, setHotelInput] = useState('')
+
+    const [showShareModal, setShowShareModal] = useState(false)
 
     useEffect(() => { fetchTripAndDays() }, [tripId])
     useEffect(() => { if (selectedDay) fetchActivities(selectedDay.id) }, [selectedDay])
@@ -737,7 +740,32 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                         <>
                             <div className="timeline-header">
                                 <div><h1 style={{ margin: 0 }}>Giorno {selectedDay.day_number}</h1></div>
-                                <button onClick={handleExportPdf} disabled={exporting} className="btn-primary" style={{ width: 'auto', padding: '8px 16px', display: 'flex', gap: 5 }}><Download size={18} /> PDF</button>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+
+                                    {/* SHARE BUTTON */}
+                                    <button
+                                        onClick={() => setShowShareModal(true)}
+                                        className="btn-primary"
+                                        style={{
+                                            width: 'auto',
+                                            padding: '8px 16px',
+                                            display: 'flex',
+                                            gap: 6,
+                                            backgroundColor: 'white',
+                                            color: 'var(--primary)',
+                                            border: '1px solid var(--primary)'
+                                        }}
+                                        title="Invita amici a modificare"
+                                    >
+                                        <Share2 size={18} />
+                                        Condividi
+                                    </button>
+
+                                    {/* PDF BUTTON */}
+                                    <button onClick={handleExportPdf} disabled={exporting} className="btn-primary" style={{ width: 'auto', padding: '8px 16px', display: 'flex', gap: 5 }}>
+                                        <Download size={18} /> PDF
+                                    </button>
+                                </div>
                             </div>
 
                             <ErrorMessage message={pdfError} />
@@ -902,6 +930,12 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                         </div>
                     </div>
                 )}
+
+                <ShareTripModal
+                    isOpen={showShareModal}
+                    onClose={() => setShowShareModal(false)}
+                    tripId={tripId}
+                />
 
                 {/* DELETE MODAL */}
                 <ConfirmationModal
