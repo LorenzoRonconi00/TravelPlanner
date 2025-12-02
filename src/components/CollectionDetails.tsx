@@ -49,67 +49,91 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
   }
 
   const fetchUnsplashImage = async (query: string) => {
-     const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY
-     if (!accessKey) return null
-     try {
-        const response = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=landscape&per_page=1`, { headers: { Authorization: `Client-ID ${accessKey}` } })
-        const data = await response.json()
-        return data.results?.[0]?.urls?.regular || null
-     } catch (e) { return null }
+    const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY
+    if (!accessKey) return null
+    try {
+      const response = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=landscape&per_page=1`, { headers: { Authorization: `Client-ID ${accessKey}` } })
+      const data = await response.json()
+      return data.results?.[0]?.urls?.regular || null
+    } catch (e) { return null }
   }
 
   const handleSaveTrip = async (data: typeof formData) => {
     setErrorMsg('')
+
     if (!data.title || !data.startDate || !data.endDate || !data.destination) return setErrorMsg('Compila i campi obbligatori (*).')
-    
+
+    const startTimestamp = new Date(data.startDate).setHours(0, 0, 0, 0)
+    const endTimestamp = new Date(data.endDate).setHours(0, 0, 0, 0)
+    const diffDays = Math.ceil((endTimestamp - startTimestamp) / (1000 * 60 * 60 * 24))
+
+    if (diffDays < 0) return setErrorMsg('Data fine errata.')
+    if (diffDays > 30) return setErrorMsg('Max 30 giorni.')
+
+    const conflict = trips.find(trip => {
+      if (trip.id === editingTripId) return false
+
+      const existingStart = new Date(trip.start_date).setHours(0, 0, 0, 0)
+      const existingEnd = new Date(trip.end_date).setHours(0, 0, 0, 0)
+
+      const isOverlapping = (startTimestamp < existingEnd) && (endTimestamp > existingStart)
+
+      return isOverlapping
+    })
+
+    if (conflict) {
+      return setErrorMsg(`Le date si sovrappongono con la tappa "${conflict.title}" (${new Date(conflict.start_date).toLocaleDateString()} - ${new Date(conflict.end_date).toLocaleDateString()}).`)
+    }
+
     const accomInfo = data.accommodation ? `Alloggio: ${data.accommodation}` : null
 
     if (editingTripId) {
-        const original = trips.find(t => t.id === editingTripId)
-        let newImg = original?.image_url
-        if (original && original.destination.toLowerCase() !== data.destination.toLowerCase()) {
-            newImg = await fetchUnsplashImage(data.destination)
-        }
-        const { error } = await supabase.from('trips').update({
-            title: data.title, destination: data.destination, start_date: data.startDate, end_date: data.endDate, accommodation_info: accomInfo, image_url: newImg
-        }).eq('id', editingTripId)
-        
-        if (error) setErrorMsg(error.message); else { setShowModal(false); fetchCollectionData(); }
-        return
+      const original = trips.find(t => t.id === editingTripId)
+      let newImg = original?.image_url
+      if (original && original.destination.toLowerCase() !== data.destination.toLowerCase()) {
+        newImg = await fetchUnsplashImage(data.destination)
+      }
+      const { error } = await supabase.from('trips').update({
+        title: data.title, destination: data.destination, start_date: data.startDate, end_date: data.endDate, accommodation_info: accomInfo, image_url: newImg
+      }).eq('id', editingTripId)
+
+      if (error) setErrorMsg(error.message); else { setShowModal(false); fetchCollectionData(); }
+      return
     }
 
     let img = await fetchUnsplashImage(data.destination)
     if (!img) img = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop'
-    
+
     const { data: newTrip, error } = await supabase.from('trips').insert([{
-        user_id: userId, 
-        collection_id: collectionId,
-        title: data.title, 
-        destination: data.destination, 
-        start_date: data.startDate, 
-        end_date: data.endDate, 
-        image_url: img, 
-        accommodation_info: accomInfo
+      user_id: userId,
+      collection_id: collectionId,
+      title: data.title,
+      destination: data.destination,
+      start_date: data.startDate,
+      end_date: data.endDate,
+      image_url: img,
+      accommodation_info: accomInfo
     }]).select().single()
 
     if (error) return setErrorMsg(error.message)
-    
+
     if (newTrip) {
-        const start = new Date(data.startDate); const end = new Date(data.endDate);
-        const daysArr = []; let count = 1;
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            daysArr.push({ trip_id: newTrip.id, date: new Date(d).toISOString().split('T')[0], day_number: count++ })
-        }
-        await supabase.from('days').insert(daysArr)
-        setShowModal(false); fetchCollectionData()
+      const daysArr = []; let count = 1;
+      const tripStart = new Date(data.startDate);
+      const tripEnd = new Date(data.endDate);
+      for (let d = new Date(tripStart); d <= tripEnd; d.setDate(d.getDate() + 1)) {
+        daysArr.push({ trip_id: newTrip.id, date: new Date(d).toISOString().split('T')[0], day_number: count++ })
+      }
+      await supabase.from('days').insert(daysArr)
+      setShowModal(false); fetchCollectionData()
     }
   }
 
   const handleEditClick = (e: React.MouseEvent, trip: Trip) => {
     e.stopPropagation(); setEditingTripId(trip.id);
     setFormData({
-        title: trip.title, destination: trip.destination, startDate: trip.start_date, endDate: trip.end_date,
-        accommodation: trip.accommodation_info ? trip.accommodation_info.replace('Alloggio: ', '').split(' | ')[0] : '', airport: ''
+      title: trip.title, destination: trip.destination, startDate: trip.start_date, endDate: trip.end_date,
+      accommodation: trip.accommodation_info ? trip.accommodation_info.replace('Alloggio: ', '').split(' | ')[0] : '', airport: ''
     })
     setErrorMsg(''); setShowModal(true)
   }
@@ -133,59 +157,59 @@ export default function CollectionDetails({ collectionId, onBack, onSelectTrip, 
   return (
     <div className="dashboard-layout">
       <header className="dashboard-header">
-        <div style={{ display:'flex', alignItems:'center', gap:'15px' }}>
-             <button className="back-btn" onClick={onBack} style={{ border:'none', fontSize:'1.5rem', padding:'10px', color:'var(--primary)' }}>
-                <ArrowLeft />
-             </button>
-             <div>
-                 <div style={{ fontSize:'0.8rem', color:'var(--text-muted)', fontWeight:'bold' }}>RACCOLTA</div>
-                 <div className="brand-title" style={{fontSize:'1.5rem'}}>{collectionTitle}</div>
-             </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <button className="back-btn" onClick={onBack} style={{ border: 'none', fontSize: '1.5rem', padding: '10px', color: 'var(--primary)' }}>
+            <ArrowLeft />
+          </button>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>RACCOLTA</div>
+            <div className="brand-title" style={{ fontSize: '1.5rem' }}>{collectionTitle}</div>
+          </div>
         </div>
       </header>
 
       <main className="dashboard-content">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-             <h2 style={{ margin: 0, color: 'var(--text-main)' }}>Tappe del Viaggio</h2>
-             <button 
-                className="btn-primary" 
-                style={{ width: 'auto', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.9rem' }} 
-                onClick={openNewTripModal}
-             >
-                <PlusCircle size={18} /> Aggiungi Tappa
-             </button>
+          <h2 style={{ margin: 0, color: 'var(--text-main)' }}>Tappe del Viaggio</h2>
+          <button
+            className="btn-primary"
+            style={{ width: 'auto', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.9rem' }}
+            onClick={openNewTripModal}
+          >
+            <PlusCircle size={18} /> Aggiungi Tappa
+          </button>
         </div>
 
         <div className="trips-grid">
           {loading ? <div>Caricamento tappe...</div> : trips.map((trip, index) => (
-            <div key={trip.id} style={{position:'relative'}}>
-                 <div style={{
-                     position:'absolute', top:-10, left:-10, zIndex:30, 
-                     background:'var(--primary)', color:'white', 
-                     width:30, height:30, borderRadius:'50%', 
-                     display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold',
-                     boxShadow:'0 2px 5px rgba(0,0,0,0.2)'
-                 }}>
-                     {index + 1}
-                 </div>
-                 <TripCard 
-                    trip={trip} 
-                    onSelect={onSelectTrip} 
-                    onEdit={handleEditClick} 
-                    onDelete={handleDeleteTrip} 
-                 />
+            <div key={trip.id} style={{ position: 'relative' }}>
+              <div style={{
+                position: 'absolute', top: -10, left: -10, zIndex: 30,
+                background: 'var(--primary)', color: 'white',
+                width: 30, height: 30, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+              }}>
+                {index + 1}
+              </div>
+              <TripCard
+                trip={trip}
+                onSelect={onSelectTrip}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteTrip}
+              />
             </div>
           ))}
-          
+
           {trips.length === 0 && !loading && (
-              <div style={{gridColumn:'1/-1', textAlign:'center', color:'var(--text-muted)', marginTop:50}}>
-                  Questa raccolta è vuota. Aggiungi la prima tappa del tuo viaggio!
-              </div>
+            <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--text-muted)', marginTop: 50 }}>
+              Questa raccolta è vuota. Aggiungi la prima tappa del tuo viaggio!
+            </div>
           )}
         </div>
       </main>
 
-      <TripFormModal 
+      <TripFormModal
         isOpen={showModal}
         isEditing={!!editingTripId}
         initialData={formData}
