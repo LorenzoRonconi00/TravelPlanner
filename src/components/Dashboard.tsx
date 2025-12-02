@@ -63,6 +63,9 @@ function DroppableCollection({ collection, children }: { collection: any, childr
 //#endregion
 
 export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollection }: DashboardProps): JSX.Element {
+
+    //#region STATES AND EFFECTS
+
     const [trips, setTrips] = useState<Trip[]>([])
     const [collections, setCollections] = useState<TripCollection[]>([])
     const [loading, setLoading] = useState(true)
@@ -105,6 +108,8 @@ export default function Dashboard({ user, onLogout, onSelectTrip, onSelectCollec
         fetchTrips()
         fetchPendingCount()
     }, [])
+
+    //#endregion
 
     //#region TRIPS
 
