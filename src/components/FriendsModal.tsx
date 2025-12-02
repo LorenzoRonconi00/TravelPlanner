@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../SupabaseClient'
 import { X, Users, Inbox, Search, Check, Trash2, Send, Loader2, Map } from 'lucide-react'
 import { ConfirmationModal } from './ui/ConfirmationModal'
+import { AlertModal } from './ui/AlertModal'
 
 interface FriendsModalProps {
     isOpen: boolean
@@ -29,6 +30,12 @@ export function FriendsModal({ isOpen, onClose, counts, onUpdate }: FriendsModal
     const [friendshipIdToDelete, setFriendshipIdToDelete] = useState<string | null>(null)
 
     const [tripInvites, setTripInvites] = useState<any[]>([])
+
+    const [alertInfo, setAlertInfo] = useState({ isOpen: false, title: '', message: '' })
+
+    const showAlert = (title: string, message: string) => {
+        setAlertInfo({ isOpen: true, title, message })
+    }
 
     const getMyId = async () => (await supabase.auth.getUser()).data.user?.id
 
@@ -154,7 +161,7 @@ export function FriendsModal({ isOpen, onClose, counts, onUpdate }: FriendsModal
 
         } catch (err: any) {
             console.error("Errore azione invito:", err)
-            alert("Impossibile completare l'azione: " + err.message)
+            showAlert('Impossibile completare la richiesta: ', err.message);
         }
     }
 
@@ -368,6 +375,13 @@ export function FriendsModal({ isOpen, onClose, counts, onUpdate }: FriendsModal
                 message={activeTab === 'pending' ? "Rifiutare questa richiesta?" : "Rimuovere questo amico?"}
                 confirmText={activeTab === 'pending' ? "Rifiuta" : "Rimuovi"}
                 isDangerous={true}
+            />
+
+            <AlertModal
+                isOpen={alertInfo.isOpen}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                onClose={() => setAlertInfo({ ...alertInfo, isOpen: false })}
             />
         </div>
     )

@@ -7,6 +7,7 @@ import { ConfirmationModal } from './ui/ConfirmationModal'
 import { DraggableAiCard } from './DraggableAiCard'
 import { TransportModal, TransportData } from './TransportModal'
 import { ShareTripModal } from './ShareTripModal'
+import { AlertModal } from './ui/AlertModal'
 
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -100,6 +101,12 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
     const [showShareModal, setShowShareModal] = useState(false)
     const [currentUserId, setCurrentUserId] = useState<string | null>(null)
     const [showLeaveModal, setShowLeaveModal] = useState(false)
+
+    const [alertInfo, setAlertInfo] = useState({ isOpen: false, title: '', message: '' })
+
+    const showAlert = (title: string, message: string) => {
+        setAlertInfo({ isOpen: true, title, message })
+    }
 
     useEffect(() => { fetchTripAndDays() }, [tripId])
     useEffect(() => { if (selectedDay) fetchActivities(selectedDay.id) }, [selectedDay])
@@ -556,7 +563,7 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
 
         } catch (e: any) {
             console.error(e)
-            alert("Errore durante l'uscita: " + e.message)
+            showAlert('Errore durante la disconnessione: ', e.message);
         }
     }
 
@@ -988,6 +995,13 @@ export default function TripDetails({ tripId, onBack }: TripDetailsProps): JSX.E
                     message="Sei sicuro di voler uscire da questo viaggio condiviso? Non potrai più vederlo né modificarlo."
                     confirmText="Sì, esci"
                     isDangerous={true}
+                />
+
+                <AlertModal
+                    isOpen={alertInfo.isOpen}
+                    title={alertInfo.title}
+                    message={alertInfo.message}
+                    onClose={() => setAlertInfo({ ...alertInfo, isOpen: false })}
                 />
             </div>
         </DndContext>
